@@ -1,89 +1,94 @@
 pub mod column {
     use std::vec::Vec;
+    use std::collections::HashSet;
 
-    pub trait ColumnValue : PartialOrd + std::fmt::Display + std::fmt::Debug {
-        fn from_value(value: &serde_json::Value) -> Self;
+    #[derive(Hash,PartialEq,Eq,Debug)]
+    pub enum ColumnValue {
+        Integer(i64),
+        String(String),
+        None
     }
 
-    impl ColumnValue for String {
-        fn from_value(value: &serde_json::Value) -> String {
-            if let serde_json::Value::String(s) = value {
-                s.clone()
+    pub type ColumnValueExtractor = fn(value: &serde_json::Value) -> Result<ColumnValue, &'static str>;
+
+    pub fn extract_integer_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'static str> {
+        if let serde_json::Value::Number(n) = value {
+            if let Some(v) = n.as_i64() {
+                Ok(ColumnValue::Integer(v))
             } else {
-                panic!("{} is not a string", value);
+                Err("value is not integer")
             }
+        } else {
+            Err("value is not a number")
         }
     }
 
-    impl ColumnValue for u64 {
-        fn from_value(value: &serde_json::Value) -> u64 {
-            if let serde_json::Value::Number(n) = value {
-                n.as_u64().expect("not a u64")
-            } else {
-                panic!("{} is not a u64", value);
-            }
+    pub fn extract_string_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'static str> {
+        if let serde_json::Value::String(v) = value {
+            Ok(ColumnValue::String(v.clone()))
+        } else {
+            Err("value is not a number")
         }
     }
 
     #[derive(Debug)]
-    pub struct Column<T: ColumnValue> {
+    pub struct Column {
         pub name: String,
-        pub values: Vec<T>
+        pub values: Vec<ColumnValue>
     }
 
-    pub trait AbstractColumn : std::fmt::Debug {}
-
-    impl<T: ColumnValue> AbstractColumn for Column<T> {}
+    impl Column {
+        pub fn unique(&self) -> HashSet<&ColumnValue> {
+           HashSet::from_iter(self.values.iter())
+        }
+    }
 
     #[derive(Debug)]
     pub struct DataFrame {
-        pub columns: Vec<Box<dyn AbstractColumn>> 
+        pub columns: Vec<Column> 
     }
 }
 
 use std::fs;
-use crate::column::{Column,ColumnValue,DataFrame};
+use std::collections::HashMap;
+use crate::column::*;
 
-fn extract_column<T: ColumnValue>(name: &str, input: &serde_json::Value) -> Column<T> {
-   if let serde_json::Value::Array(input_values) = input {
-        let mut values: Vec<T> = Vec::new();
-        for input_element in input_values {
-            if let serde_json::Value::Object(input_obj) = input_element {
-                let input_value = input_obj.get(name).expect("input element missing key");    
-                if let serde_json::Value::String(_) = input_value {
-                    let t: Column<String> = extract_column(name, input);
-                    println!("> {:?}", t);
-                }
-
-                values.push(T::from_value(input_value));
-            } else {
-                panic!("expected input element to be object but got: {}", input_element);
+fn extract_column(name: &str, input: &JSONInput, extractor: &ColumnValueExtractor) -> Column {
+    let mut values: Vec<ColumnValue> = Vec::new();
+    for input_element in input {
+        if let Some(input_value) = input_element.get(name) {
+            match extractor(input_value) {
+                Ok(v) => values.push(v),
+                Err(e) => panic!("failed to parse value={}: {}", input_value, e)
             }
+        } else {
+            values.push(ColumnValue::None)
         }
-
-        return Column{
-            name: String::from(name),
-            values: values,
-        };
-    } else {
-        panic!("expected input to be array");
     }
+
+    return Column{
+        name: String::from(name),
+        values: values,
+    };
 }
+
+type JSONInput = Vec<HashMap<String, serde_json::Value>>;
 
 fn main() {
     let filename = "assets/test.json"; // FIXME: get from args
-    let 
-    let f = fs::File::open(filename).expect("failed to open input file");
-    let input: serde_json::Value = serde_json::from_reader(&f).expect("failed to parse JSON file");
-    
+    let mut spec: HashMap<&str, ColumnValueExtractor> = HashMap::new(); // FIXME: get from config
+    spec.insert("name", extract_string_from_json);
+    spec.insert("value", extract_integer_from_json);
 
-    let name_col: Column<String> = extract_column("name", &input);
-    let value_col: Column<u64> = extract_column("value", &input);
+    let f = fs::File::open(filename).expect("failed to open input file");
+    let input: JSONInput = serde_json::from_reader(&f).expect("failed to parse JSON file");
+    
     let data = DataFrame {
-        columns: vec!(
-            Box::new(name_col),
-            Box::new(value_col)
-        )
+        columns: spec.iter().map(|(column_name, extractor)| -> Column {
+            extract_column(column_name, &input, extractor)
+        }).collect()
     };
+
     println!("Read file: {:?}", data);
+    println!("Unique names: {:?}", data.columns[0].unique())
 }
