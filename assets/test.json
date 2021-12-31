@@ -1,0 +1,13 @@
+[
+    {"name": "a", "value": 10},
+    {"name": "a", "value": 12},
+    {"name": "a", "value": 13},
+    {"name": "a", "value": 20},
+    {"name": "a", "value": 56},
+    {"name": "a", "value": 12},
+    {"name": "a", "value": 43},
+    {"name": "b", "value": 32},
+    {"name": "b", "value": 14},
+    {"name": "b", "value": 17},
+    {"name": "b", "value": 76}
+]
