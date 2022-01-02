@@ -44,7 +44,7 @@ impl<'a> TableComponent<'a> {
     fn set_filter(&mut self) {
         let index_in_grouped = self.selected;
         let index_in_df = self.grouped_content[index_in_grouped][0];
-        if self.filter.is_empty() {
+        if !self.has_filter() {
             for name in &self.df.group_columns {
                 if let Some(column) = self.df.columns.get(name) {
                     self.filter.insert(name.clone(), column.values[index_in_df].clone());
@@ -53,6 +53,10 @@ impl<'a> TableComponent<'a> {
             self.set_selected(0);
             self.group_content();
         }
+    }
+
+    fn has_filter(&self) -> bool {
+        !self.filter.is_empty()
     }
 
     fn reset_filter(&mut self) {
@@ -132,35 +136,39 @@ impl<'a> TableComponent<'a> {
     }
 
     fn get_column_names(&self) -> Box<dyn Iterator<Item = &'a String> + 'a> {
-        if self.filter.is_empty() {
-            Box::new(self.df.group_columns.iter())
-        } else {
+        if self.has_filter() {
             Box::new(self.df.columns.keys())
+        } else {
+            Box::new(self.df.group_columns.iter())
         }
     }
 
     fn group_content(&mut self) {
         let filter_index = self.get_content_filter();
-        let mut row_indices: indexmap::IndexMap<Vec<dataframe::ColumnValue>, Vec<usize>> = indexmap::IndexMap::new();
-        for i in filter_index {
-            let mut row_cells = Vec::new();
-            let mut row_values = Vec::new();
-            for name in self.get_column_names() {
-                if let Some(c) = self.df.columns.get(name) {
-                    let colorize = colorizer::select(c);
-                    let v = &c.values[i];
-                    row_values.push(v.clone());
-                    row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
+
+        if self.has_filter() {
+            self.grouped_content = filter_index.into_iter().map(|c| vec![c]).collect();
+        } else {
+            let mut row_indices: indexmap::IndexMap<Vec<dataframe::ColumnValue>, Vec<usize>> = indexmap::IndexMap::new();
+            for i in filter_index {
+                let mut row_cells = Vec::new();
+                let mut row_values = Vec::new();
+                for name in self.get_column_names() {
+                    if let Some(c) = self.df.columns.get(name) {
+                        let colorize = colorizer::select(c);
+                        let v = &c.values[i];
+                        row_values.push(v.clone());
+                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
+                    }
+                }
+                if let Some(row) = row_indices.get_mut(&row_values) {
+                    row.push(i);
+                } else {
+                    row_indices.insert(row_values, vec![i]);
                 }
             }
-            if let Some(row) = row_indices.get_mut(&row_values) {
-                row.push(i);
-            } else {
-                row_indices.insert(row_values, vec![i]);
-            }
+            self.grouped_content = row_indices.into_iter().map(|(_, v)| v).collect();
         }
-
-        self.grouped_content = row_indices.into_iter().map(|(_, v)| v).collect();
     }
 }
 
@@ -178,16 +186,20 @@ pub fn show_dataframe(df: &dataframe::DataFrame) -> Result<(), io::Error> {
         term.draw(|f| table.render(f))?;
 
         if let event::Event::Key(key) = event::read()? {
-            let should_exit = key.code == event::KeyCode::Char('q')
-                || key.code == event::KeyCode::Char('c') && key.modifiers == event::KeyModifiers::CONTROL;
-            if should_exit {
+            if key.code == event::KeyCode::Char('c') && key.modifiers == event::KeyModifiers::CONTROL {
                 break;
             }
             match key.code {
                 event::KeyCode::Char('w') | event::KeyCode::Up => table.move_selected(true),
                 event::KeyCode::Char('s') | event::KeyCode::Down => table.move_selected(false),
                 event::KeyCode::Enter => table.set_filter(),
-                event::KeyCode::Esc => table.reset_filter(),
+                event::KeyCode::Char('q') | event::KeyCode::Esc => {
+                    if table.has_filter() {
+                        table.reset_filter();
+                    } else {
+                        break;
+                    }
+                }
                 _ => {}
             }
         }
