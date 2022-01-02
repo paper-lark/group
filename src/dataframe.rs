@@ -8,6 +8,16 @@ pub enum ColumnValue {
     None
 }
 
+impl std::string::ToString for ColumnValue {
+    fn to_string(&self) -> String {
+        match self {
+            ColumnValue::Integer(n) => n.to_string(),
+            ColumnValue::String(s) => s.clone(),
+            ColumnValue::None => String::from("")
+        }
+    }
+}
+
 pub type ColumnValueExtractor = fn(value: &serde_json::Value) -> Result<ColumnValue, &'static str>;
 
 pub fn extract_integer_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'static str> {
