@@ -1,12 +1,14 @@
+#![warn(clippy::all, clippy::pedantic)]
+
 mod dataframe;
 mod input;
 mod ui;
 
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
 use std::io;
 
-use crate::dataframe::*;
+use crate::dataframe::{extract_integer_from_json, extract_string_from_json, ColumnValueExtractor};
 use crate::input::read;
 use crate::ui::show_dataframe;
 
@@ -23,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Read file: {:?}", data);
     println!("Unique names: {:?}", data.columns[0].unique());
 
-    show_dataframe(data)?;
+    show_dataframe(&data)?;
 
     Ok(())
 }

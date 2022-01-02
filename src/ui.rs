@@ -1,55 +1,53 @@
 use std::io;
-use tui::Terminal;
-use tui::Frame;
 use tui::backend;
-use tui::widgets;
+use tui::backend::CrosstermBackend;
 use tui::layout;
 use tui::style;
-use tui::backend::CrosstermBackend;
+use tui::widgets;
+use tui::Frame;
+use tui::Terminal;
 
-use crossterm::{
-    event,
-    execute,
-    terminal
-};
+use crossterm::{event, execute, terminal};
 
 use crate::dataframe;
 
 struct TableComponent<'a> {
     df: &'a dataframe::DataFrame,
-    row_count: usize, 
+    row_count: usize,
     state: widgets::TableState,
 }
 
 impl<'a> TableComponent<'a> {
     fn new(df: &dataframe::DataFrame) -> TableComponent {
-        assert_eq!(df.columns.len() > 0, true, "data should have at least one column");
+        assert!(!df.columns.is_empty(), "data should have at least one column");
         let row_counts: Vec<usize> = df.columns.iter().map(|c| c.values.len()).collect();
-        assert_eq!(row_counts.len() > 0, true, "data should have at least one row");
-        assert_eq!(row_counts.iter().min() == row_counts.iter().max(), true, "columns have different number of rows");
-
+        assert!(!row_counts.is_empty(), "data should have at least one row");
+        assert!(row_counts.iter().min() == row_counts.iter().max(), "columns have different number of rows");
 
         let mut state = widgets::TableState::default();
         state.select(Some(0));
-        TableComponent{
-            df: df,
+        TableComponent {
+            df,
             row_count: row_counts[0],
-            state: state,
+            state,
         }
     }
-    
+
     fn move_selected(&mut self, up: bool) {
         let i = match self.state.selected() {
             Some(i) => (i + (if up { self.row_count - 1 } else { self.row_count + 1 })) % self.row_count,
-            None => 0
+            None => 0,
         };
-        self.state.select(Some(i))
+        self.state.select(Some(i));
     }
 
     fn render<B: backend::Backend>(&mut self, f: &mut Frame<B>) {
-        let table_header: Vec<widgets::Cell> = self.df.columns.iter().map(|c| {
-            widgets::Cell::from(c.name.clone())
-        }).collect();
+        let table_header: Vec<widgets::Cell> = self
+            .df
+            .columns
+            .iter()
+            .map(|c| widgets::Cell::from(c.name.clone()))
+            .collect();
 
         let mut table_cells: Vec<Vec<widgets::Cell>> = Vec::new();
         for c in &self.df.columns {
@@ -57,20 +55,20 @@ impl<'a> TableComponent<'a> {
                 let cell = widgets::Cell::from(v.to_string());
                 match table_cells.get(i) {
                     Some(_) => table_cells[i].push(cell),
-                    None => table_cells.push(vec!(cell))
+                    None => table_cells.push(vec![cell]),
                 }
             }
         }
-        let table_contents: Vec<widgets::Row> = table_cells.into_iter().map(|v| widgets::Row::new(v)).collect();
+        let table_contents: Vec<widgets::Row> = table_cells.into_iter().map(widgets::Row::new).collect();
 
         let table = widgets::Table::new(table_contents)
             .header(
                 widgets::Row::new(table_header)
                     .style(style::Style::default().fg(style::Color::Yellow))
-                    .bottom_margin(1)
+                    .bottom_margin(1),
             )
             .block(widgets::Block::default().borders(widgets::Borders::ALL))
-            .highlight_style(style::Style::default().bg(style::Color::Blue).add_modifier(style::Modifier::BOLD))
+            .highlight_style(style::Style::default().bg(style::Color::Blue))
             .widths(&[
                 layout::Constraint::Percentage(50),
                 layout::Constraint::Length(30),
@@ -78,13 +76,12 @@ impl<'a> TableComponent<'a> {
             ])
             .column_spacing(1);
 
-            let size = f.size();
-            f.render_stateful_widget(table, size, &mut self.state); 
+        let size = f.size();
+        f.render_stateful_widget(table, size, &mut self.state);
     }
 }
 
-
-pub fn show_dataframe(df: dataframe::DataFrame) -> Result<(), io::Error> {
+pub fn show_dataframe(df: &dataframe::DataFrame) -> Result<(), io::Error> {
     // prepare tui
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
@@ -93,20 +90,15 @@ pub fn show_dataframe(df: dataframe::DataFrame) -> Result<(), io::Error> {
     term.clear()?;
 
     // draw table
-    let mut table = TableComponent::new(&df);
+    let mut table = TableComponent::new(df);
     loop {
-        term.draw(|f| table.render(f) )?;
+        term.draw(|f| table.render(f))?;
 
         if let event::Event::Key(key) = event::read()? {
             match key.code {
-                event::KeyCode::Char('q') => break,
-                event::KeyCode::Esc => break,
-
-                event::KeyCode::Up => table.move_selected(true),
-                event::KeyCode::Char('w') => table.move_selected(true),
-
-                event::KeyCode::Down => table.move_selected(false),
-                event::KeyCode::Char('s') => table.move_selected(false),
+                event::KeyCode::Esc | event::KeyCode::Char('q') => break,
+                event::KeyCode::Char('w') | event::KeyCode::Up => table.move_selected(true),
+                event::KeyCode::Char('s') | event::KeyCode::Down => table.move_selected(false),
                 _ => {}
             }
         }
@@ -115,11 +107,7 @@ pub fn show_dataframe(df: dataframe::DataFrame) -> Result<(), io::Error> {
     // clean up tui
     term.clear()?;
     terminal::disable_raw_mode()?;
-    execute!(
-        term.backend_mut(),
-        terminal::LeaveAlternateScreen,
-        event::DisableMouseCapture
-    )?;
+    execute!(term.backend_mut(), terminal::LeaveAlternateScreen, event::DisableMouseCapture)?;
     term.show_cursor()?;
 
     Ok(())

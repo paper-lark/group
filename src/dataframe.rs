@@ -1,11 +1,11 @@
-use std::vec::Vec;
 use std::collections::HashSet;
+use std::vec::Vec;
 
-#[derive(Hash,PartialEq,Eq,Debug)]
+#[derive(Hash, PartialEq, Eq, Debug)]
 pub enum ColumnValue {
     Integer(i64),
     String(String),
-    None
+    None,
 }
 
 impl std::string::ToString for ColumnValue {
@@ -13,7 +13,7 @@ impl std::string::ToString for ColumnValue {
         match self {
             ColumnValue::Integer(n) => n.to_string(),
             ColumnValue::String(s) => s.clone(),
-            ColumnValue::None => String::from("")
+            ColumnValue::None => String::from(""),
         }
     }
 }
@@ -43,16 +43,16 @@ pub fn extract_string_from_json(value: &serde_json::Value) -> Result<ColumnValue
 #[derive(Debug)]
 pub struct Column {
     pub name: String,
-    pub values: Vec<ColumnValue>
+    pub values: Vec<ColumnValue>,
 }
 
 impl Column {
     pub fn unique(&self) -> HashSet<&ColumnValue> {
-        HashSet::from_iter(self.values.iter())
+        self.values.iter().collect::<HashSet<_>>()
     }
 }
 
 #[derive(Debug)]
 pub struct DataFrame {
-    pub columns: Vec<Column> 
+    pub columns: Vec<Column>,
 }
