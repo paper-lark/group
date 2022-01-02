@@ -1,5 +1,6 @@
 #![warn(clippy::all, clippy::pedantic)]
 
+mod colorizer;
 mod dataframe;
 mod input;
 mod ui;
@@ -15,9 +16,10 @@ use crate::ui::show_dataframe;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filename = "assets/test.json"; // FIXME: get from args
-    let spec: [JSONColumnSpec; 2] = [
+    let spec: [JSONColumnSpec; 3] = [
         (String::from("name"), extract_string_from_json),
         (String::from("value"), extract_integer_from_json),
+        (String::from("static"), extract_string_from_json),
     ]; // FIXME: get from config
 
     let f = fs::File::open(filename)?;
