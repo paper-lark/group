@@ -1,0 +1,12 @@
+{"name": "a","value": 10,"static": "yes"}
+{"name": "a","value": 12,"static": "yes"}
+{"name": "a","value": 13,"static": "yes"}
+{"name": "a","value": 20,"static": "yes"}
+{"value": 30}
+{"name": "a","value": 56,"static": "yes"}
+{"name": "a","value": 12,"static": "yes"}
+{"name": "a","value": 43,"static": "yes"}
+{"name": "b","value": 32,"static": "yes"}
+{"name": "b","value": 14,"static": "yes"}
+{"name": "b","value": 17,"static": "yes"}
+{"name": "b","value": 76,"static": "yes"}

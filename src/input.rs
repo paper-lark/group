@@ -7,8 +7,17 @@ use string_error::into_err;
 type JSONInput = HashMap<String, serde_json::Value>;
 pub type JSONColumnSpec = (String, ColumnValueExtractor);
 
-pub fn read(reader: impl std::io::BufRead, spec: &[JSONColumnSpec]) -> Result<DataFrame, Box<dyn Error>> {
-    let input: Vec<JSONInput> = serde_json::from_reader(reader)?;
+pub fn read(reader: impl std::io::BufRead, spec: &[JSONColumnSpec], as_json: bool) -> Result<DataFrame, Box<dyn Error>> {
+    let input: Vec<JSONInput> = if as_json {
+        serde_json::from_reader(reader)?
+    } else {
+        let mut result: Vec<JSONInput> = Vec::new();
+        let deserializer = serde_json::Deserializer::from_reader(reader);
+        for v in deserializer.into_iter::<JSONInput>() {
+            result.push(v?);
+        }
+        result
+    };
 
     let mut columns: IndexMap<String, Column> = IndexMap::new();
     for (column_name, extractor) in spec {

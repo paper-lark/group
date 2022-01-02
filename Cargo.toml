@@ -11,3 +11,4 @@ string-error = "0.1.0"
 indexmap = "1.7.0"
 crossterm = "0.22.1"
 tui = { version = "0.16", default-features = false, features = ['crossterm'] }
+structopt = { version = "0.3", default-features = false }
