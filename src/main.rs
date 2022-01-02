@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Read file: {:?}", data);
     println!("Unique names: {:?}", data.columns[0].unique());
 
-    show_dataframe(data);
+    show_dataframe(data)?;
 
     Ok(())
 }
