@@ -7,8 +7,8 @@ use string_error::into_err;
 type JSONInput = HashMap<String, serde_json::Value>;
 pub type JSONColumnSpec = (String, ColumnValueExtractor);
 
-pub fn read(reader: impl std::io::BufRead, spec: &[JSONColumnSpec], as_json: bool) -> Result<DataFrame, Box<dyn Error>> {
-    let input: Vec<JSONInput> = if as_json {
+pub fn read_dataframe(reader: impl std::io::BufRead, spec: &[JSONColumnSpec], as_single_object: bool) -> Result<DataFrame, Box<dyn Error>> {
+    let input: Vec<JSONInput> = if as_single_object {
         serde_json::from_reader(reader)?
     } else {
         let mut result: Vec<JSONInput> = Vec::new();
