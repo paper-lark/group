@@ -23,11 +23,17 @@ struct TableComponent<'a> {
 
 impl<'a> TableComponent<'a> {
     fn new(df: &dataframe::DataFrame) -> TableComponent {
+        assert_eq!(df.columns.len() > 0, true, "data should have at least one column");
+        let row_counts: Vec<usize> = df.columns.iter().map(|c| c.values.len()).collect();
+        assert_eq!(row_counts.len() > 0, true, "data should have at least one row");
+        assert_eq!(row_counts.iter().min() == row_counts.iter().max(), true, "columns have different number of rows");
+
+
         let mut state = widgets::TableState::default();
         state.select(Some(0));
         TableComponent{
             df: df,
-            row_count: df.columns[0].values.len(),
+            row_count: row_counts[0],
             state: state,
         }
     }
@@ -79,13 +85,14 @@ impl<'a> TableComponent<'a> {
 
 
 pub fn show_dataframe(df: dataframe::DataFrame) -> Result<(), io::Error> {
+    // prepare tui
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
     let mut term = Terminal::new(backend)?;
-
     terminal::enable_raw_mode()?;
     term.clear()?;
 
+    // draw table
     let mut table = TableComponent::new(&df);
     loop {
         term.draw(|f| table.render(f) )?;
@@ -105,7 +112,7 @@ pub fn show_dataframe(df: dataframe::DataFrame) -> Result<(), io::Error> {
         }
     }
 
-    // FIXME: call before exit
+    // clean up tui
     term.clear()?;
     terminal::disable_raw_mode()?;
     execute!(
@@ -114,7 +121,6 @@ pub fn show_dataframe(df: dataframe::DataFrame) -> Result<(), io::Error> {
         event::DisableMouseCapture
     )?;
     term.show_cursor()?;
-
 
     Ok(())
 }
