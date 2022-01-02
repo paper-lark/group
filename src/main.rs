@@ -24,8 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         (String::from("static"), extract_string_from_json),
     ]; // FIXME: get from config
 
-    let f = io::BufReader::new(fs::File::open(args.input)?);
-    let reader = std::io::BufReader::new(f);
+    let reader = io::BufReader::new(fs::File::open(args.input)?);
     let data = read_dataframe(reader, &spec, args.single)?;
     show_dataframe(&data)?;
 
