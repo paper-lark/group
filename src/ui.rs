@@ -1,4 +1,8 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::io;
+
+use crossterm::{event, execute, terminal};
 use tui::backend;
 use tui::backend::CrosstermBackend;
 use tui::layout;
@@ -7,9 +11,8 @@ use tui::widgets;
 use tui::Frame;
 use tui::Terminal;
 
-use crossterm::{event, execute, terminal};
-
 use crate::dataframe;
+use crate::max;
 
 struct TableComponent<'a> {
     df: &'a dataframe::DataFrame,
@@ -52,7 +55,10 @@ impl<'a> TableComponent<'a> {
         let mut table_cells: Vec<Vec<widgets::Cell>> = Vec::new();
         for c in &self.df.columns {
             for (i, v) in c.values.iter().enumerate() {
-                let cell = widgets::Cell::from(v.to_string());
+                let s = v.to_string();
+                let color = get_color(&s);
+
+                let cell = widgets::Cell::from(s).style(style::Style::default().fg(color));
                 match table_cells.get(i) {
                     Some(_) => table_cells[i].push(cell),
                     None => table_cells.push(vec![cell]),
@@ -111,4 +117,16 @@ pub fn show_dataframe(df: &dataframe::DataFrame) -> Result<(), io::Error> {
     term.show_cursor()?;
 
     Ok(())
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn get_color<T: Hash>(value: &T) -> style::Color {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    let r = max!(hash as u8, (hash >> 8) as u8, (hash >> 16) as u8);
+    let g = max!((hash >> 24) as u8, (hash >> 32) as u8, (hash >> 40) as u8);
+    let b = max!((hash >> 48) as u8, (hash >> 56) as u8, hash as u8);
+    style::Color::Rgb(r, g, b)
 }

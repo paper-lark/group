@@ -4,16 +4,14 @@ use std::error::Error;
 use string_error::into_err;
 
 type JSONInput = HashMap<String, serde_json::Value>;
+pub type JSONColumnSpec = (String, ColumnValueExtractor);
 
-pub fn read(
-    reader: impl std::io::BufRead,
-    file_spec: HashMap<&str, ColumnValueExtractor>,
-) -> Result<DataFrame, Box<dyn Error>> {
+pub fn read(reader: impl std::io::BufRead, spec: &[JSONColumnSpec]) -> Result<DataFrame, Box<dyn Error>> {
     let input: Vec<JSONInput> = serde_json::from_reader(reader)?;
 
     let mut columns: Vec<Column> = Vec::new();
-    for (column_name, extractor) in file_spec {
-        let result = extract_column(column_name, &input, extractor);
+    for (column_name, extractor) in spec {
+        let result = extract_column(column_name, &input, *extractor);
         match result {
             Ok(column) => columns.push(column),
             Err(err) => return Err(err),
