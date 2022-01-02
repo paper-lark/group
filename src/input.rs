@@ -1,4 +1,5 @@
 use crate::dataframe::{Column, ColumnValue, ColumnValueExtractor, DataFrame};
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::error::Error;
 use string_error::into_err;
@@ -9,16 +10,19 @@ pub type JSONColumnSpec = (String, ColumnValueExtractor);
 pub fn read(reader: impl std::io::BufRead, spec: &[JSONColumnSpec]) -> Result<DataFrame, Box<dyn Error>> {
     let input: Vec<JSONInput> = serde_json::from_reader(reader)?;
 
-    let mut columns: Vec<Column> = Vec::new();
+    let mut columns: IndexMap<String, Column> = IndexMap::new();
     for (column_name, extractor) in spec {
         let result = extract_column(column_name, &input, *extractor);
         match result {
-            Ok(column) => columns.push(column),
+            Ok(column) => columns.insert(column.name.clone(), column),
             Err(err) => return Err(err),
-        }
+        };
     }
 
-    Ok(DataFrame { columns })
+    Ok(DataFrame {
+        columns,
+        group_columns: vec![String::from("name"), String::from("static")],
+    })
 }
 
 fn extract_column(name: &str, input: &[JSONInput], extractor: ColumnValueExtractor) -> Result<Column, Box<dyn Error>> {

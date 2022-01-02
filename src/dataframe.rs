@@ -1,7 +1,8 @@
+use indexmap::IndexMap;
 use std::collections::HashSet;
 use std::vec::Vec;
 
-#[derive(Hash, PartialEq, Eq, Debug)]
+#[derive(Hash, PartialEq, Eq, Debug, Clone)]
 pub enum ColumnValue {
     Integer(i64),
     String(String),
@@ -54,5 +55,6 @@ impl Column {
 
 #[derive(Debug)]
 pub struct DataFrame {
-    pub columns: Vec<Column>,
+    pub columns: IndexMap<String, Column>,
+    pub group_columns: Vec<String>,
 }

@@ -12,7 +12,7 @@ pub fn select(col: &Column) -> Colorizer {
 
     let mut unique_values = col.unique();
     unique_values.remove(&ColumnValue::None);
-    if (2..MAX_COLORS).contains(&unique_values.len()) {
+    if (2..=MAX_COLORS).contains(&unique_values.len()) {
         colorize_rgb
     } else {
         colorize_static
@@ -21,13 +21,21 @@ pub fn select(col: &Column) -> Colorizer {
 
 #[allow(clippy::cast_possible_truncation)]
 fn colorize_rgb(value: &ColumnValue) -> style::Color {
+    const MIN_INTENSITY: u8 = 128;
+    macro_rules! intensify {
+        ($x: expr) => {
+            MIN_INTENSITY + ($x) % 128
+        };
+    }
+
     let mut hasher = DefaultHasher::new();
     value.hash(&mut hasher);
     let hash = hasher.finish();
 
-    let r = max!(hash as u8, (hash >> 8) as u8, (hash >> 16) as u8);
-    let g = max!((hash >> 24) as u8, (hash >> 32) as u8, (hash >> 40) as u8);
-    let b = max!((hash >> 48) as u8, (hash >> 56) as u8, hash as u8);
+    let r = intensify!(max!(hash as u8, (hash >> 8) as u8, (hash >> 16) as u8));
+    let g = intensify!(max!((hash >> 24) as u8, (hash >> 32) as u8, (hash >> 40) as u8));
+    let b = intensify!(max!((hash >> 48) as u8, (hash >> 56) as u8, hash as u8));
+
     style::Color::Rgb(r, g, b)
 }
 
