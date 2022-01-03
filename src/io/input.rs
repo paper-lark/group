@@ -86,3 +86,100 @@ fn extract_string_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'
         Err("value is not a number")
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::configuration::{InputAttributeSpec, InputSpec};
+    use crate::io::dataframe::{Column, ColumnValue, DataFrame, InputAttributeType};
+    use crate::io::input::read_dataframe;
+    use indexmap::IndexMap;
+
+    macro_rules! columns {
+        ($( $x:expr ),*) => {{
+            let mut temp_map = IndexMap::new();
+            $(
+                let element = $x;
+                temp_map.insert(element.name.clone(), element);
+            )*
+            temp_map
+        }};
+    }
+
+    macro_rules! simple_dataframe {
+        ($column_name:expr, $attr_type:expr => $( $value:expr ),*) => {
+            DataFrame {
+                group_columns: vec![String::from($column_name)],
+                columns: columns![Column {
+                    name: String::from($column_name),
+                    attr_type: $attr_type,
+                    values: vec![$($value),*]
+                }]
+            }
+        };
+    }
+
+    macro_rules! simple_spec {
+        ($column_name:expr, $attr_type:expr) => {
+            InputSpec {
+                attrs: vec![InputAttributeSpec {
+                    name: String::from($column_name),
+                    attr_type: $attr_type,
+                }],
+                group_by: vec![String::from($column_name)],
+            }
+        };
+    }
+
+    #[test]
+    fn read_dataframe_parses_integer_column() {
+        let input = "{\"int\": 10}\n{\"int\": 20}\n";
+        let spec = simple_spec!("int", InputAttributeType::Integer);
+        let expected = simple_dataframe!("int", InputAttributeType::Integer => ColumnValue::Integer(10), ColumnValue::Integer(20));
+        let actual = read_dataframe(input.as_bytes(), &spec, false);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_parses_string_column() {
+        let input = "{\"s\": \"hello\"}\n{\"s\": \"world\"}\n";
+        let spec = simple_spec!("s", InputAttributeType::String);
+        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::String(String::from("world")));
+        let actual = read_dataframe(input.as_bytes(), &spec, false);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_parses_column_with_missing_values() {
+        let input = "{\"s\": \"hello\"}\n{}\n";
+        let spec = simple_spec!("s", InputAttributeType::String);
+        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::None);
+        let actual = read_dataframe(input.as_bytes(), &spec, false);
+        assert_eq!(Some(expected), actual.ok());
+    }
+    #[test]
+    fn read_dataframe_parses_integer_column_when_reading_single_object() {
+        let input = "[{\"int\": 10}, {\"int\": 20}]";
+        let spec = simple_spec!("int", InputAttributeType::Integer);
+        let expected = simple_dataframe!("int", InputAttributeType::Integer => ColumnValue::Integer(10), ColumnValue::Integer(20));
+        let actual = read_dataframe(input.as_bytes(), &spec, true);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_parses_string_column_when_reading_single_object() {
+        let input = "[{\"s\": \"hello\"}, {\"s\": \"world\"}]";
+        let spec = simple_spec!("s", InputAttributeType::String);
+        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::String(String::from("world")));
+        let actual = read_dataframe(input.as_bytes(), &spec, true);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_parses_column_with_missing_values_when_reading_single_object() {
+        let input = "[{\"s\": \"hello\"}, {}]";
+        let spec = simple_spec!("s", InputAttributeType::String);
+        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::None);
+        let actual = read_dataframe(input.as_bytes(), &spec, true);
+        assert_eq!(Some(expected), actual.ok());
+    }
+}

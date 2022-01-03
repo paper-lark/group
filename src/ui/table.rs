@@ -42,9 +42,8 @@ impl<'a> Table<'a> {
         let index_in_df = self.grouped_content[index_in_grouped][0];
         if !self.has_filter() {
             for name in &self.df.group_columns {
-                if let Some(column) = self.df.columns.get(name) {
-                    self.filter.insert(name.clone(), column.values[index_in_df].clone());
-                }
+                let column = &self.df[name];
+                self.filter.insert(name.clone(), column.values[index_in_df].clone());
             }
             self.set_selected(0);
             self.group_content();
@@ -94,11 +93,10 @@ impl<'a> Table<'a> {
             let i = idx[0];
             let mut row_cells = Vec::new();
             for name in self.get_column_names() {
-                if let Some(c) = self.df.columns.get(name) {
-                    let colorize = colorizer::select(c);
-                    let v = &c.values[i];
-                    row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
-                }
+                let column = &self.df[name];
+                let colorize = colorizer::select(column);
+                let v = &column.values[i];
+                row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
             }
             table_contents.push(widgets::Row::new(row_cells));
         }
@@ -130,15 +128,9 @@ impl<'a> Table<'a> {
 
     fn get_column_widths(&self) -> Vec<layout::Constraint> {
         self.get_column_names()
-            .map(|name| {
-                if let Some(c) = self.df.columns.get(name) {
-                    match c.attr_type {
-                        dataframe::InputAttributeType::String => layout::Constraint::Min(16),
-                        dataframe::InputAttributeType::Integer => layout::Constraint::Length(16),
-                    }
-                } else {
-                    layout::Constraint::Length(0)
-                }
+            .map(|name| match self.df[name].attr_type {
+                dataframe::InputAttributeType::String => layout::Constraint::Min(16),
+                dataframe::InputAttributeType::Integer => layout::Constraint::Length(16),
             })
             .collect()
     }
@@ -162,12 +154,11 @@ impl<'a> Table<'a> {
                 let mut row_cells = Vec::new();
                 let mut row_values = Vec::new();
                 for name in self.get_column_names() {
-                    if let Some(c) = self.df.columns.get(name) {
-                        let colorize = colorizer::select(c);
-                        let v = &c.values[i];
-                        row_values.push(v.clone());
-                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
-                    }
+                    let column = &self.df[name];
+                    let colorize = colorizer::select(column);
+                    let v = &column.values[i];
+                    row_values.push(v.clone());
+                    row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
                 }
                 if let Some(row) = row_indices.get_mut(&row_values) {
                     row.push(i);

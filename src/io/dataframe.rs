@@ -1,6 +1,9 @@
+use indexmap::Equivalent;
 use indexmap::IndexMap;
 use serde::Deserialize;
 use std::collections::HashSet;
+use std::hash::Hash;
+use std::ops::Index;
 use std::vec::Vec;
 
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
@@ -10,7 +13,7 @@ pub enum ColumnValue {
     None,
 }
 
-#[derive(Deserialize, Clone, Copy)]
+#[derive(PartialEq, Debug, Deserialize, Clone, Copy)]
 pub enum InputAttributeType {
     Integer,
     String,
@@ -26,6 +29,7 @@ impl std::string::ToString for ColumnValue {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct Column {
     pub name: String,
     pub attr_type: InputAttributeType,
@@ -38,7 +42,19 @@ impl Column {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct DataFrame {
     pub columns: IndexMap<String, Column>,
     pub group_columns: Vec<String>,
+}
+
+impl<Q: ?Sized> Index<&Q> for DataFrame
+where
+    Q: Hash + Equivalent<String>,
+{
+    type Output = Column;
+
+    fn index(&self, key: &Q) -> &Column {
+        &self.columns[key]
+    }
 }
