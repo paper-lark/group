@@ -1,0 +1,15 @@
+attrs:
+  - name: name
+    type: String
+
+  - name: value
+    type: Integer
+
+  - name: static
+    type: String
+
+  - name: missing
+    type: String
+
+group_by:
+  - value

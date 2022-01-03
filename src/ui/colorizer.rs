@@ -1,7 +1,7 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use crate::dataframe::{Column, ColumnValue};
+use crate::io::dataframe::{Column, ColumnValue};
 use crate::max;
 use tui::style;
 
