@@ -1,5 +1,5 @@
 use crate::configuration::InputSpec;
-use crate::io::dataframe::{Column, ColumnValue, DataFrame, InputAttributeType};
+use crate::io::dataframe::{Column, ColumnValue, InputAttributeType, MaterializedDataFrame};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::error::Error;
@@ -8,7 +8,11 @@ use string_error::into_err;
 type JSONInput = HashMap<String, serde_json::Value>;
 type ColumnValueExtractor = fn(value: &serde_json::Value) -> Result<ColumnValue, &'static str>;
 
-pub fn read_dataframe(reader: impl std::io::BufRead, spec: &InputSpec, as_single_object: bool) -> Result<DataFrame, Box<dyn Error>> {
+pub fn read_dataframe(
+    reader: impl std::io::BufRead,
+    spec: &InputSpec,
+    as_single_object: bool,
+) -> Result<MaterializedDataFrame, Box<dyn Error>> {
     let input: Vec<JSONInput> = if as_single_object {
         serde_json::from_reader(reader)?
     } else {
@@ -29,10 +33,7 @@ pub fn read_dataframe(reader: impl std::io::BufRead, spec: &InputSpec, as_single
         };
     }
 
-    Ok(DataFrame {
-        columns,
-        group_columns: spec.group_by.clone(),
-    })
+    Ok(MaterializedDataFrame::new(columns))
 }
 
 fn extract_column(
@@ -90,7 +91,7 @@ fn extract_string_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'
 #[cfg(test)]
 mod test {
     use crate::configuration::{InputAttributeSpec, InputSpec};
-    use crate::io::dataframe::{Column, ColumnValue, DataFrame, InputAttributeType};
+    use crate::io::dataframe::{Column, ColumnValue, InputAttributeType, MaterializedDataFrame};
     use crate::io::input::read_dataframe;
     use indexmap::IndexMap;
 
@@ -107,8 +108,7 @@ mod test {
 
     macro_rules! simple_dataframe {
         ($column_name:expr, $attr_type:expr => $( $value:expr ),*) => {
-            DataFrame {
-                group_columns: vec![String::from($column_name)],
+            MaterializedDataFrame {
                 columns: columns![Column {
                     name: String::from($column_name),
                     attr_type: $attr_type,
