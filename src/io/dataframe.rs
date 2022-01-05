@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -10,6 +11,7 @@ use std::vec::Vec;
 pub enum ColumnValue {
     Integer(i64),
     String(String),
+    DateTime(DateTime<Utc>),
     None,
 }
 
@@ -17,6 +19,7 @@ pub enum ColumnValue {
 pub enum InputAttributeType {
     Integer,
     String,
+    DateTime,
 }
 
 impl std::string::ToString for ColumnValue {
@@ -24,6 +27,7 @@ impl std::string::ToString for ColumnValue {
         match self {
             ColumnValue::Integer(n) => n.to_string(),
             ColumnValue::String(s) => s.clone(),
+            ColumnValue::DateTime(d) => d.format("%H:%M:%S%.3f").to_string(),
             ColumnValue::None => String::from(""),
         }
     }
@@ -55,26 +59,14 @@ pub trait DataFrame: Index<String, Output = Column> + Index<(String, usize), Out
     fn column_names(&self) -> Vec<&String>;
 
     fn row(&self, index: usize) -> Vec<ColumnValue>;
-
-    fn group_by(&self, columns: &[String]) -> Vec<Vec<usize>> {
-        let mut row_indices: indexmap::IndexMap<Vec<ColumnValue>, Vec<usize>> = indexmap::IndexMap::new();
-        for i in 0..self.len() {
-            let row: Vec<ColumnValue> = columns.iter().map(|name| self[name.clone()][i].clone()).collect();
-            if let Some(group) = row_indices.get_mut(&row) {
-                group.push(i);
-            } else {
-                row_indices.insert(row, vec![i]);
-            }
-        }
-
-        row_indices.into_iter().map(|(_, v)| v).collect()
-    }
 }
 
 #[derive(PartialEq, Debug)]
 pub struct MaterializedDataFrame {
     pub columns: IndexMap<String, Column>,
 }
+
+impl MaterializedDataFrame {}
 
 impl DataFrame for MaterializedDataFrame {
     fn len(&self) -> usize {
@@ -132,6 +124,24 @@ impl MaterializedDataFrame {
 
         DataFrameFilterView { source: self, idx }
     }
+
+    pub fn group_by<'a>(&'a self, columns: &'a [String]) -> DataFrameGroupView {
+        let mut row_indices: indexmap::IndexMap<Vec<ColumnValue>, Vec<usize>> = indexmap::IndexMap::new();
+        for i in 0..self.len() {
+            let row: Vec<ColumnValue> = columns.iter().map(|name| self[name.clone()][i].clone()).collect();
+            if let Some(group) = row_indices.get_mut(&row) {
+                group.push(i);
+            } else {
+                row_indices.insert(row, vec![i]);
+            }
+        }
+
+        DataFrameGroupView {
+            group_idx: row_indices.into_iter().map(|(_, v)| v).collect(),
+            group_columns: columns,
+            source: self,
+        }
+    }
 }
 
 pub struct DataFrameFilterView<'a> {
@@ -166,5 +176,41 @@ impl<'a> Index<(String, usize)> for DataFrameFilterView<'a> {
 
     fn index(&self, key: (String, usize)) -> &ColumnValue {
         &self.source[key.0][self.idx[key.1]]
+    }
+}
+
+pub struct DataFrameGroupView<'a> {
+    source: &'a MaterializedDataFrame,
+    group_columns: &'a [String],
+    group_idx: Vec<Vec<usize>>,
+}
+
+impl<'a> DataFrame for DataFrameGroupView<'a> {
+    fn len(&self) -> usize {
+        self.group_idx.len()
+    }
+
+    fn column_names(&self) -> Vec<&String> {
+        self.group_columns.iter().collect()
+    }
+
+    fn row(&self, index: usize) -> Vec<ColumnValue> {
+        self.source.columns.values().map(|c| c[self.group_idx[index][0]].clone()).collect()
+    }
+}
+
+impl<'a> Index<String> for DataFrameGroupView<'a> {
+    type Output = Column;
+
+    fn index(&self, key: String) -> &Column {
+        &self.source[key]
+    }
+}
+
+impl<'a> Index<(String, usize)> for DataFrameGroupView<'a> {
+    type Output = ColumnValue;
+
+    fn index(&self, key: (String, usize)) -> &ColumnValue {
+        &self.source[key.0][self.group_idx[key.1][0]]
     }
 }

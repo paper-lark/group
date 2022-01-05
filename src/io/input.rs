@@ -1,5 +1,6 @@
 use crate::configuration::InputSpec;
 use crate::io::dataframe::{Column, ColumnValue, InputAttributeType, MaterializedDataFrame};
+use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::error::Error;
@@ -65,6 +66,7 @@ fn get_extractor_by_attribute_type(attr_type: InputAttributeType) -> ColumnValue
     match attr_type {
         InputAttributeType::Integer => extract_integer_from_json,
         InputAttributeType::String => extract_string_from_json,
+        InputAttributeType::DateTime => extract_datetime_from_json,
     }
 }
 
@@ -83,6 +85,17 @@ fn extract_integer_from_json(value: &serde_json::Value) -> Result<ColumnValue, &
 fn extract_string_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'static str> {
     if let serde_json::Value::String(v) = value {
         Ok(ColumnValue::String(v.clone()))
+    } else {
+        Err("value is not a number")
+    }
+}
+
+fn extract_datetime_from_json(value: &serde_json::Value) -> Result<ColumnValue, &'static str> {
+    if let serde_json::Value::String(v) = value {
+        match DateTime::parse_from_rfc3339(v) {
+            Ok(d) => Ok(ColumnValue::DateTime(d.with_timezone(&Utc {}))),
+            Err(_) => Err("value is not an RFC 3339 date"),
+        }
     } else {
         Err("value is not a number")
     }
