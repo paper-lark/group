@@ -103,7 +103,7 @@ impl<'a> Table<'a> {
                     .add_modifier(style::Modifier::BOLD),
             )
             .widths(&column_widths)
-            .column_spacing(1);
+            .column_spacing(2);
 
         let size = f.size();
         let table_state = &mut self.get_current_state_mut().table_state;
@@ -162,12 +162,31 @@ impl<'a> Table<'a> {
     }
 
     fn get_column_widths(&self) -> Vec<layout::Constraint> {
+        const MAX_STRING_LEN: u16 = 32;
+
         self.get_column_names()
             .into_iter()
-            .map(|name| match self.source_df[name].attr_type {
-                dataframe::InputAttributeType::String => layout::Constraint::Percentage(30),
-                dataframe::InputAttributeType::Integer => layout::Constraint::Length(16),
-                dataframe::InputAttributeType::DateTime => layout::Constraint::Length(12),
+            .map(|name| {
+                let column = &self.source_df[name];
+                match column.attr_type {
+                    dataframe::InputAttributeType::String => {
+                        let lens: Vec<usize> = column
+                            .values
+                            .iter()
+                            .map(|c| if let dataframe::ColumnValue::String(v) = c { v.len() } else { 0 })
+                            .filter(|c| *c > 0)
+                            .collect();
+                        let max_len = lens.iter().fold(name.len(), |a, b| a.max(*b));
+                        if max_len < MAX_STRING_LEN as usize {
+                            #[allow(clippy::cast_possible_truncation)]
+                            layout::Constraint::Length(max_len as u16)
+                        } else {
+                            layout::Constraint::Min(MAX_STRING_LEN)
+                        }
+                    }
+                    dataframe::InputAttributeType::Integer => layout::Constraint::Length(16),
+                    dataframe::InputAttributeType::DateTime => layout::Constraint::Length(12),
+                }
             })
             .collect()
     }

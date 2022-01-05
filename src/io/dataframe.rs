@@ -55,9 +55,7 @@ impl Index<usize> for Column {
 
 pub trait DataFrame {
     fn len(&self) -> usize;
-
     fn column_names(&self) -> Vec<&String>;
-
     fn row(&self, index: usize) -> Vec<ColumnValue>;
 }
 

@@ -9,5 +9,4 @@
 - Support nested JSON fields
 
 # Backlog
-- Preserve cursor position when returning to grouped view
 - Show current table mode in the bottom
