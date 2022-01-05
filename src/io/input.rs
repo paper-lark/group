@@ -106,6 +106,7 @@ mod test {
     use crate::configuration::{InputAttributeSpec, InputSpec};
     use crate::io::dataframe::{Column, ColumnValue, InputAttributeType, MaterializedDataFrame};
     use crate::io::input::read_dataframe;
+    use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
     use indexmap::IndexMap;
 
     macro_rules! columns {
@@ -143,11 +144,50 @@ mod test {
         };
     }
 
+    macro_rules! datetime_value {
+        ($y:expr, $m:expr, $d:expr, $h:expr, $min:expr, $s:expr, $ms:expr) => {
+            ColumnValue::DateTime(DateTime::<Utc>::from_utc(
+                NaiveDateTime::new(NaiveDate::from_ymd($y, $m, $d), NaiveTime::from_hms_milli($h, $min, $s, $ms)),
+                Utc,
+            ))
+        };
+    }
+
+    macro_rules! integer_value {
+        ($i:expr) => {
+            ColumnValue::Integer($i)
+        };
+    }
+
+    macro_rules! string_value {
+        ($s:expr) => {
+            ColumnValue::String(String::from($s))
+        };
+    }
+
     #[test]
     fn read_dataframe_parses_integer_column() {
         let input = "{\"int\": 10}\n{\"int\": 20}\n";
         let spec = simple_spec!("int", InputAttributeType::Integer);
-        let expected = simple_dataframe!("int", InputAttributeType::Integer => ColumnValue::Integer(10), ColumnValue::Integer(20));
+        let expected = simple_dataframe!("int", InputAttributeType::Integer => integer_value!(10), integer_value!(20));
+        let actual = read_dataframe(input.as_bytes(), &spec, false);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_parses_datetime_column() {
+        let input = "{\"d\": \"2022-01-05T00:50:03.432Z\"}\n{\"d\": \"2022-01-05T00:50:05Z\"}";
+        let spec = simple_spec!("d", InputAttributeType::DateTime);
+        let expected = simple_dataframe!("d", InputAttributeType::DateTime => datetime_value!(2022, 1, 5, 0, 50, 3, 432), datetime_value!(2022, 1, 5, 0, 50, 5, 0));
+        let actual = read_dataframe(input.as_bytes(), &spec, false);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_converts_datetime_to_utc() {
+        let input = "{\"d\": \"2022-01-05T03:50:03.432+03:00\"}";
+        let spec = simple_spec!("d", InputAttributeType::DateTime);
+        let expected = simple_dataframe!("d", InputAttributeType::DateTime => datetime_value!(2022, 1, 5, 0, 50, 3, 432));
         let actual = read_dataframe(input.as_bytes(), &spec, false);
         assert_eq!(Some(expected), actual.ok());
     }
@@ -156,7 +196,7 @@ mod test {
     fn read_dataframe_parses_string_column() {
         let input = "{\"s\": \"hello\"}\n{\"s\": \"world\"}\n";
         let spec = simple_spec!("s", InputAttributeType::String);
-        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::String(String::from("world")));
+        let expected = simple_dataframe!("s", InputAttributeType::String => string_value!("hello"), string_value!("world"));
         let actual = read_dataframe(input.as_bytes(), &spec, false);
         assert_eq!(Some(expected), actual.ok());
     }
@@ -165,15 +205,16 @@ mod test {
     fn read_dataframe_parses_column_with_missing_values() {
         let input = "{\"s\": \"hello\"}\n{}\n";
         let spec = simple_spec!("s", InputAttributeType::String);
-        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::None);
+        let expected = simple_dataframe!("s", InputAttributeType::String => string_value!("hello"), ColumnValue::None);
         let actual = read_dataframe(input.as_bytes(), &spec, false);
         assert_eq!(Some(expected), actual.ok());
     }
+
     #[test]
     fn read_dataframe_parses_integer_column_when_reading_single_object() {
         let input = "[{\"int\": 10}, {\"int\": 20}]";
         let spec = simple_spec!("int", InputAttributeType::Integer);
-        let expected = simple_dataframe!("int", InputAttributeType::Integer => ColumnValue::Integer(10), ColumnValue::Integer(20));
+        let expected = simple_dataframe!("int", InputAttributeType::Integer => integer_value!(10), integer_value!(20));
         let actual = read_dataframe(input.as_bytes(), &spec, true);
         assert_eq!(Some(expected), actual.ok());
     }
@@ -182,7 +223,16 @@ mod test {
     fn read_dataframe_parses_string_column_when_reading_single_object() {
         let input = "[{\"s\": \"hello\"}, {\"s\": \"world\"}]";
         let spec = simple_spec!("s", InputAttributeType::String);
-        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::String(String::from("world")));
+        let expected = simple_dataframe!("s", InputAttributeType::String => string_value!("hello"), string_value!("world"));
+        let actual = read_dataframe(input.as_bytes(), &spec, true);
+        assert_eq!(Some(expected), actual.ok());
+    }
+
+    #[test]
+    fn read_dataframe_parses_datetime_column_when_readin_single_object() {
+        let input = "[{\"d\": \"2022-01-05T00:50:03.432Z\"}, {\"d\": \"2022-01-05T00:50:05Z\"}]";
+        let spec = simple_spec!("d", InputAttributeType::DateTime);
+        let expected = simple_dataframe!("d", InputAttributeType::DateTime => datetime_value!(2022, 1, 5, 0, 50, 3, 432), datetime_value!(2022, 1, 5, 0, 50, 5, 0));
         let actual = read_dataframe(input.as_bytes(), &spec, true);
         assert_eq!(Some(expected), actual.ok());
     }
@@ -191,7 +241,7 @@ mod test {
     fn read_dataframe_parses_column_with_missing_values_when_reading_single_object() {
         let input = "[{\"s\": \"hello\"}, {}]";
         let spec = simple_spec!("s", InputAttributeType::String);
-        let expected = simple_dataframe!("s", InputAttributeType::String => ColumnValue::String(String::from("hello")), ColumnValue::None);
+        let expected = simple_dataframe!("s", InputAttributeType::String => string_value!("hello"), ColumnValue::None);
         let actual = read_dataframe(input.as_bytes(), &spec, true);
         assert_eq!(Some(expected), actual.ok());
     }
