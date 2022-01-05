@@ -48,7 +48,7 @@ impl<'a> Table<'a> {
         if let TableModeState::Grouped(df) = &state.mode_state {
             let mut filter: HashMap<String, dataframe::ColumnValue> = HashMap::new();
             for name in self.group_columns {
-                let v = &df[(name.clone(), state.selected)];
+                let v = &df[(name, state.selected)];
                 filter.insert(name.clone(), v.clone());
             }
 
@@ -125,9 +125,9 @@ impl<'a> Table<'a> {
                 for i in 0..df.len() {
                     let mut row_cells = Vec::new();
                     for name in self.get_column_names() {
-                        let column = &self.source_df[name.clone()];
+                        let column = &self.source_df[name];
                         let colorize = colorizer::select(column);
-                        let v = &df[(name.clone(), i)];
+                        let v = &df[(name, i)];
                         row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
                     }
                     table_contents.push(widgets::Row::new(row_cells));
@@ -137,9 +137,9 @@ impl<'a> Table<'a> {
                 for i in 0..df.len() {
                     let mut row_cells = Vec::new();
                     for name in self.get_column_names() {
-                        let column = &self.source_df[name.clone()];
+                        let column = &self.source_df[name];
                         let colorize = colorizer::select(column);
-                        let v = &df[(name.clone(), i)];
+                        let v = &df[(name, i)];
                         row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
                     }
                     table_contents.push(widgets::Row::new(row_cells));
@@ -164,7 +164,7 @@ impl<'a> Table<'a> {
     fn get_column_widths(&self) -> Vec<layout::Constraint> {
         self.get_column_names()
             .into_iter()
-            .map(|name| match self.source_df[name.clone()].attr_type {
+            .map(|name| match self.source_df[name].attr_type {
                 dataframe::InputAttributeType::String => layout::Constraint::Percentage(30),
                 dataframe::InputAttributeType::Integer => layout::Constraint::Length(16),
                 dataframe::InputAttributeType::DateTime => layout::Constraint::Length(12),

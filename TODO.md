@@ -9,6 +9,5 @@
 - Support nested JSON fields
 
 # Backlog
-- Remove string cloning when retrieving values 
 - Preserve cursor position when returning to grouped view
 - Show current table mode in the bottom

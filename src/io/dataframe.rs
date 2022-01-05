@@ -53,7 +53,7 @@ impl Index<usize> for Column {
     }
 }
 
-pub trait DataFrame: Index<String, Output = Column> + Index<(String, usize), Output = ColumnValue> {
+pub trait DataFrame {
     fn len(&self) -> usize;
 
     fn column_names(&self) -> Vec<&String>;
@@ -82,19 +82,19 @@ impl DataFrame for MaterializedDataFrame {
     }
 }
 
-impl Index<String> for MaterializedDataFrame {
+impl Index<&String> for MaterializedDataFrame {
     type Output = Column;
 
-    fn index(&self, key: String) -> &Column {
-        &self.columns[&key]
+    fn index(&self, key: &String) -> &Column {
+        &self.columns[key]
     }
 }
 
-impl Index<(String, usize)> for MaterializedDataFrame {
+impl Index<(&String, usize)> for MaterializedDataFrame {
     type Output = ColumnValue;
 
-    fn index(&self, key: (String, usize)) -> &ColumnValue {
-        &self.columns[&key.0][key.1]
+    fn index(&self, key: (&String, usize)) -> &ColumnValue {
+        &self.columns[key.0][key.1]
     }
 }
 
@@ -128,7 +128,7 @@ impl MaterializedDataFrame {
     pub fn group_by<'a>(&'a self, columns: &'a [String]) -> DataFrameGroupView {
         let mut row_indices: indexmap::IndexMap<Vec<ColumnValue>, Vec<usize>> = indexmap::IndexMap::new();
         for i in 0..self.len() {
-            let row: Vec<ColumnValue> = columns.iter().map(|name| self[name.clone()][i].clone()).collect();
+            let row: Vec<ColumnValue> = columns.iter().map(|name| self[name][i].clone()).collect();
             if let Some(group) = row_indices.get_mut(&row) {
                 group.push(i);
             } else {
@@ -163,18 +163,18 @@ impl<'a> DataFrame for DataFrameFilterView<'a> {
     }
 }
 
-impl<'a> Index<String> for DataFrameFilterView<'a> {
+impl<'a> Index<&String> for DataFrameFilterView<'a> {
     type Output = Column;
 
-    fn index(&self, key: String) -> &Column {
+    fn index(&self, key: &String) -> &Column {
         &self.source[key]
     }
 }
 
-impl<'a> Index<(String, usize)> for DataFrameFilterView<'a> {
+impl<'a> Index<(&String, usize)> for DataFrameFilterView<'a> {
     type Output = ColumnValue;
 
-    fn index(&self, key: (String, usize)) -> &ColumnValue {
+    fn index(&self, key: (&String, usize)) -> &ColumnValue {
         &self.source[key.0][self.idx[key.1]]
     }
 }
@@ -199,18 +199,18 @@ impl<'a> DataFrame for DataFrameGroupView<'a> {
     }
 }
 
-impl<'a> Index<String> for DataFrameGroupView<'a> {
+impl<'a> Index<&String> for DataFrameGroupView<'a> {
     type Output = Column;
 
-    fn index(&self, key: String) -> &Column {
+    fn index(&self, key: &String) -> &Column {
         &self.source[key]
     }
 }
 
-impl<'a> Index<(String, usize)> for DataFrameGroupView<'a> {
+impl<'a> Index<(&String, usize)> for DataFrameGroupView<'a> {
     type Output = ColumnValue;
 
-    fn index(&self, key: (String, usize)) -> &ColumnValue {
+    fn index(&self, key: (&String, usize)) -> &ColumnValue {
         &self.source[key.0][self.group_idx[key.1][0]]
     }
 }
