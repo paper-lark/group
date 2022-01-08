@@ -29,11 +29,9 @@ pub fn show_dataframe(df: &dataframe::MaterializedDataFrame, group_columns: &[St
             match key.code {
                 event::KeyCode::Char('w') | event::KeyCode::Up => table.move_selected(true),
                 event::KeyCode::Char('s') | event::KeyCode::Down => table.move_selected(false),
-                event::KeyCode::Enter => table.set_filter(),
+                event::KeyCode::Enter => table.focus(),
                 event::KeyCode::Char('q') | event::KeyCode::Esc => {
-                    if table.has_filter() {
-                        table.reset_filter();
-                    } else {
+                    if !table.back() {
                         break;
                     }
                 }

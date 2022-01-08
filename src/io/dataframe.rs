@@ -57,11 +57,13 @@ pub trait DataFrame {
     fn len(&self) -> usize;
     fn column_names(&self) -> Vec<&String>;
     fn row(&self, index: usize) -> Vec<ColumnValue>;
+    fn raw(&self, index: usize) -> &String;
 }
 
 #[derive(PartialEq, Debug)]
 pub struct MaterializedDataFrame {
     pub columns: IndexMap<String, Column>,
+    raw_values: Vec<String>,
 }
 
 impl MaterializedDataFrame {}
@@ -77,6 +79,10 @@ impl DataFrame for MaterializedDataFrame {
 
     fn row(&self, index: usize) -> Vec<ColumnValue> {
         self.columns.values().map(|c| c[index].clone()).collect()
+    }
+
+    fn raw(&self, index: usize) -> &String {
+        &self.raw_values[index]
     }
 }
 
@@ -97,13 +103,13 @@ impl Index<(&String, usize)> for MaterializedDataFrame {
 }
 
 impl MaterializedDataFrame {
-    pub fn new(columns: IndexMap<String, Column>) -> MaterializedDataFrame {
+    pub fn new(columns: IndexMap<String, Column>, raw_values: Vec<String>) -> MaterializedDataFrame {
         assert!(!columns.is_empty(), "data should have at least one column");
         let row_counts: Vec<usize> = columns.values().map(|c| c.values.len()).collect();
         assert!(!row_counts.is_empty(), "data should have at least one row");
         assert!(row_counts.iter().min() == row_counts.iter().max(), "columns have different number of rows");
 
-        MaterializedDataFrame { columns }
+        MaterializedDataFrame { columns, raw_values }
     }
 
     pub fn filter(&self, column_filters: &HashMap<String, ColumnValue>) -> DataFrameFilterView {
@@ -159,6 +165,10 @@ impl<'a> DataFrame for DataFrameFilterView<'a> {
     fn row(&self, index: usize) -> Vec<ColumnValue> {
         self.source.columns.values().map(|c| c[self.idx[index]].clone()).collect()
     }
+
+    fn raw(&self, index: usize) -> &String {
+        self.source.raw(self.idx[index])
+    }
 }
 
 impl<'a> Index<&String> for DataFrameFilterView<'a> {
@@ -194,6 +204,10 @@ impl<'a> DataFrame for DataFrameGroupView<'a> {
 
     fn row(&self, index: usize) -> Vec<ColumnValue> {
         self.source.columns.values().map(|c| c[self.group_idx[index][0]].clone()).collect()
+    }
+
+    fn raw(&self, index: usize) -> &String {
+        self.source.raw(self.group_idx[index][0])
     }
 }
 

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use tui::backend;
 use tui::layout;
 use tui::style;
+use tui::text;
 use tui::widgets;
 use tui::Frame;
 
@@ -25,7 +26,7 @@ struct TableState<'a> {
 
 enum TableModeState<'a> {
     Grouped(dataframe::DataFrameGroupView<'a>),
-    Filtered(dataframe::DataFrameFilterView<'a>, HashMap<String, dataframe::ColumnValue>),
+    Filtered(dataframe::DataFrameFilterView<'a>, bool),
 }
 
 impl<'a> Table<'a> {
@@ -43,7 +44,7 @@ impl<'a> Table<'a> {
         table
     }
 
-    pub fn set_filter(&mut self) {
+    pub fn focus(&mut self) {
         let state = self.get_current_state();
         if let TableModeState::Grouped(df) = &state.mode_state {
             let mut filter: HashMap<String, dataframe::ColumnValue> = HashMap::new();
@@ -53,31 +54,32 @@ impl<'a> Table<'a> {
             }
 
             self.state.push_back(TableState {
-                mode_state: TableModeState::Filtered(self.source_df.filter(&filter), filter),
+                mode_state: TableModeState::Filtered(self.source_df.filter(&filter), false),
                 table_state: widgets::TableState::default(),
                 selected: 0,
             });
             self.set_selected(0);
+            return;
+        }
+
+        let mut_state = self.get_current_state_mut();
+        if let TableModeState::Filtered(_, focused) = &mut mut_state.mode_state {
+            *focused = !*focused;
         }
     }
 
-    pub fn has_filter(&self) -> bool {
-        match self.get_current_state().mode_state {
-            TableModeState::Filtered(_, _) => true,
+    pub fn back(&mut self) -> bool {
+        match &mut self.get_current_state_mut().mode_state {
+            TableModeState::Filtered(_, focused) => {
+                if *focused {
+                    *focused = false;
+                } else {
+                    self.state.pop_back();
+                }
+                true
+            }
             TableModeState::Grouped(_) => false,
         }
-    }
-
-    pub fn reset_filter(&mut self) {
-        if let TableModeState::Filtered(_, _) = self.get_current_state().mode_state {
-            self.state.pop_back();
-        }
-    }
-
-    fn set_selected(&mut self, value: usize) {
-        let state = self.get_current_state_mut();
-        state.selected = value;
-        state.table_state.select(Some(value));
     }
 
     pub fn move_selected(&mut self, up: bool) {
@@ -93,21 +95,55 @@ impl<'a> Table<'a> {
     }
 
     pub fn render<B: backend::Backend>(&mut self, f: &mut Frame<B>) {
+        // render focused column if required
+        let size = f.size();
+        let state = self.get_current_state();
+        let table_size = if let TableModeState::Filtered(df, focused) = &state.mode_state {
+            if *focused {
+                let text = text::Text::from(df.raw(state.selected).clone());
+                let text_height = text.height();
+
+                let chunks = layout::Layout::default()
+                    .direction(layout::Direction::Vertical)
+                    .constraints(
+                        [
+                            layout::Constraint::Min(0),
+                            layout::Constraint::Length(usize_to_u16(text_height + 1)),
+                        ]
+                        .as_ref(),
+                    )
+                    .split(size);
+                let para_size = chunks[1];
+                let para = widgets::Paragraph::new(text).block(widgets::Block::default().borders(widgets::Borders::TOP));
+                f.render_widget(para, para_size);
+                chunks[0]
+            } else {
+                size
+            }
+        } else {
+            size
+        };
+
         let column_widths = self.get_column_widths();
         let table = widgets::Table::new(self.get_table_contents())
             .header(self.get_table_header())
-            .block(widgets::Block::default().borders(widgets::Borders::ALL))
             .highlight_style(
                 style::Style::default()
                     .bg(style::Color::DarkGray)
                     .add_modifier(style::Modifier::BOLD),
             )
+            .highlight_symbol("> ")
             .widths(&column_widths)
             .column_spacing(2);
 
-        let size = f.size();
-        let table_state = &mut self.get_current_state_mut().table_state;
-        f.render_stateful_widget(table, size, table_state);
+        let state = self.get_current_state_mut();
+        f.render_stateful_widget(table, table_size, &mut state.table_state);
+    }
+
+    fn set_selected(&mut self, value: usize) {
+        let state = self.get_current_state_mut();
+        state.selected = value;
+        state.table_state.select(Some(value));
     }
 
     fn get_current_state(&self) -> &TableState<'a> {
@@ -120,33 +156,25 @@ impl<'a> Table<'a> {
     fn get_table_contents<'b>(&mut self) -> Vec<widgets::Row<'b>> {
         let mut table_contents: Vec<widgets::Row> = Vec::new();
 
-        match &self.get_current_state().mode_state {
-            TableModeState::Filtered(df, _) => {
-                for i in 0..df.len() {
+        macro_rules! put_entries {
+            ($df:ident => $contents:ident) => {
+                for i in 0..$df.len() {
                     let mut row_cells = Vec::new();
                     for name in self.get_column_names() {
                         let column = &self.source_df[name];
                         let colorize = colorizer::select(column);
-                        let v = &df[(name, i)];
+                        let v = &$df[(name, i)];
                         row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
                     }
-                    table_contents.push(widgets::Row::new(row_cells));
+                    $contents.push(widgets::Row::new(row_cells));
                 }
-            }
-            TableModeState::Grouped(df) => {
-                for i in 0..df.len() {
-                    let mut row_cells = Vec::new();
-                    for name in self.get_column_names() {
-                        let column = &self.source_df[name];
-                        let colorize = colorizer::select(column);
-                        let v = &df[(name, i)];
-                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
-                    }
-                    table_contents.push(widgets::Row::new(row_cells));
-                }
-            }
+            };
         }
 
+        match &self.get_current_state().mode_state {
+            TableModeState::Filtered(df, _) => put_entries!(df => table_contents),
+            TableModeState::Grouped(df) => put_entries!(df => table_contents),
+        };
         table_contents
     }
 
@@ -196,5 +224,14 @@ impl<'a> Table<'a> {
             TableModeState::Filtered(df, _) => df.column_names(),
             TableModeState::Grouped(df) => df.column_names(),
         }
+    }
+}
+
+#[allow(clippy::cast_possible_truncation)]
+fn usize_to_u16(v: usize) -> u16 {
+    if v < std::u16::MAX as usize {
+        v as u16
+    } else {
+        std::u16::MAX
     }
 }
