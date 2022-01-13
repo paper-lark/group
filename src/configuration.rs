@@ -32,6 +32,7 @@ pub struct InputAttributeSpec {
 pub struct InputSpec {
     pub attrs: Vec<InputAttributeSpec>,
     pub group_by: Vec<String>,
+    pub show_in_grouped: Vec<String>,
 }
 
 impl InputSpec {
@@ -53,7 +54,11 @@ impl InputSpec {
                 return Err(into_err(format!("missing grouping attribute {} in spec", attr_name)));
             }
         }
-
+        for attr_name in &self.show_in_grouped {
+            if !attr_names.contains(attr_name) {
+                return Err(into_err(format!("missing attribute {} requested to show in grouped mode", attr_name)));
+            }
+        }
         Ok(())
     }
 }

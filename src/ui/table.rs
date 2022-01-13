@@ -30,11 +30,15 @@ enum TableModeState<'a> {
 }
 
 impl<'a> Table<'a> {
-    pub fn new(source_df: &'a dataframe::MaterializedDataFrame, group_columns: &'a [String]) -> Table<'a> {
+    pub fn new(
+        source_df: &'a dataframe::MaterializedDataFrame,
+        group_columns: &'a [String],
+        show_in_grouped_mode: &'a [String],
+    ) -> Table<'a> {
         let mut table = Table {
             source_df,
             state: VecDeque::from([TableState {
-                mode_state: TableModeState::Grouped(source_df.group_by(group_columns)),
+                mode_state: TableModeState::Grouped(source_df.group_by(group_columns, show_in_grouped_mode)),
                 table_state: widgets::TableState::default(),
                 selected: 0,
             }]),

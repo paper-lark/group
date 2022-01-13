@@ -3,11 +3,10 @@ use crate::io::dataframe::{Column, ColumnValue, InputAttributeType, Materialized
 use crate::io::serialize::to_pretty_json;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
-use std::collections::HashMap;
 use std::error::Error;
 use string_error::into_err;
 
-type JSONInput = HashMap<String, serde_json::Value>;
+type JSONInput = serde_json::Map<String, serde_json::Value>;
 type ColumnValueExtractor = fn(value: &serde_json::Value) -> Result<ColumnValue, &'static str>;
 
 pub fn read_dataframe(
@@ -49,17 +48,32 @@ fn extract_column(
     extractor: ColumnValueExtractor,
 ) -> Result<Column, Box<dyn Error>> {
     let mut values: Vec<ColumnValue> = Vec::new();
-    for input_element in input {
-        if let Some(input_value) = input_element.get(name) {
-            match extractor(input_value) {
-                Ok(v) => values.push(v),
-                Err(e) => return Err(into_err(format!("failed to parse value={}: {}", input_value, e))),
-            }
-        } else {
-            values.push(ColumnValue::None);
-        }
+    let attr_path: Vec<&str> = name.split('.').collect();
+    if attr_path.is_empty() {
+        return Err(into_err(format!("invalid attribute name={}", name)));
     }
 
+    for input_element in input {
+        let mut element_ref = input_element;
+        for (i, path_element) in attr_path.iter().enumerate() {
+            if let Some(input_value) = element_ref.get(*path_element) {
+                if i == attr_path.len() - 1 {
+                    match extractor(input_value) {
+                        Ok(v) => values.push(v),
+                        Err(e) => return Err(into_err(format!("failed to parse value={}: {}", input_value, e))),
+                    }
+                } else if let Some(serde_json::Value::Object(o)) = element_ref.get(*path_element) {
+                    element_ref = o;
+                } else {
+                    values.push(ColumnValue::None);
+                    break;
+                }
+            } else {
+                values.push(ColumnValue::None);
+                break;
+            }
+        }
+    }
     Ok(Column {
         name: String::from(name),
         attr_type,
@@ -146,6 +160,7 @@ mod test {
                     attr_type: $attr_type,
                 }],
                 group_by: vec![String::from($column_name)],
+                show_in_grouped: vec![],
             }
         };
     }

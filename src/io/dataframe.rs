@@ -129,7 +129,7 @@ impl MaterializedDataFrame {
         DataFrameFilterView { source: self, idx }
     }
 
-    pub fn group_by<'a>(&'a self, columns: &'a [String]) -> DataFrameGroupView {
+    pub fn group_by<'a>(&'a self, columns: &'a [String], extra_columns: &'a [String]) -> DataFrameGroupView {
         let mut row_indices: indexmap::IndexMap<Vec<ColumnValue>, Vec<usize>> = indexmap::IndexMap::new();
         for i in 0..self.len() {
             let row: Vec<ColumnValue> = columns.iter().map(|name| self[name][i].clone()).collect();
@@ -143,6 +143,7 @@ impl MaterializedDataFrame {
         DataFrameGroupView {
             group_idx: row_indices.into_iter().map(|(_, v)| v).collect(),
             group_columns: columns,
+            extra_columns,
             source: self,
         }
     }
@@ -190,6 +191,7 @@ impl<'a> Index<(&String, usize)> for DataFrameFilterView<'a> {
 pub struct DataFrameGroupView<'a> {
     source: &'a MaterializedDataFrame,
     group_columns: &'a [String],
+    extra_columns: &'a [String],
     group_idx: Vec<Vec<usize>>,
 }
 
@@ -199,7 +201,7 @@ impl<'a> DataFrame for DataFrameGroupView<'a> {
     }
 
     fn column_names(&self) -> Vec<&String> {
-        self.group_columns.iter().collect()
+        self.group_columns.iter().chain(self.extra_columns.iter()).collect()
     }
 
     fn row(&self, index: usize) -> Vec<ColumnValue> {
