@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
-use serde::Deserialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -10,22 +9,23 @@ use std::vec::Vec;
 #[derive(Hash, PartialEq, Eq, Debug, Clone)]
 pub enum ColumnValue {
     Integer(i64),
+    Boolean(bool),
     String(String),
     DateTime(DateTime<Utc>),
     None,
-}
-
-#[derive(PartialEq, Debug, Deserialize, Clone, Copy)]
-pub enum InputAttributeType {
-    Integer,
-    String,
-    DateTime,
 }
 
 impl std::string::ToString for ColumnValue {
     fn to_string(&self) -> String {
         match self {
             ColumnValue::Integer(n) => n.to_string(),
+            ColumnValue::Boolean(b) => {
+                if *b {
+                    String::from("+")
+                } else {
+                    String::from("-")
+                }
+            }
             ColumnValue::String(s) => s.clone(),
             ColumnValue::DateTime(d) => d.format("%H:%M:%S%.3f").to_string(),
             ColumnValue::None => String::from(""),
@@ -36,7 +36,6 @@ impl std::string::ToString for ColumnValue {
 #[derive(PartialEq, Debug)]
 pub struct Column {
     pub name: String,
-    pub attr_type: InputAttributeType,
     pub values: Vec<ColumnValue>,
 }
 

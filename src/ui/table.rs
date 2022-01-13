@@ -200,24 +200,13 @@ impl<'a> Table<'a> {
             .into_iter()
             .map(|name| {
                 let column = &self.source_df[name];
-                match column.attr_type {
-                    dataframe::InputAttributeType::String => {
-                        let lens: Vec<usize> = column
-                            .values
-                            .iter()
-                            .map(|c| if let dataframe::ColumnValue::String(v) = c { v.len() } else { 0 })
-                            .filter(|c| *c > 0)
-                            .collect();
-                        let max_len = lens.iter().fold(name.len(), |a, b| a.max(*b));
-                        if max_len < MAX_STRING_LEN as usize {
-                            #[allow(clippy::cast_possible_truncation)]
-                            layout::Constraint::Length(max_len as u16)
-                        } else {
-                            layout::Constraint::Min(MAX_STRING_LEN)
-                        }
-                    }
-                    dataframe::InputAttributeType::Integer => layout::Constraint::Length(16),
-                    dataframe::InputAttributeType::DateTime => layout::Constraint::Length(12),
+                let lens: Vec<usize> = column.values.iter().map(get_column_value_width).collect();
+                let max_len = lens.iter().fold(name.len(), |a, b| a.max(*b));
+                if max_len < MAX_STRING_LEN as usize {
+                    #[allow(clippy::cast_possible_truncation)]
+                    layout::Constraint::Length(max_len as u16)
+                } else {
+                    layout::Constraint::Min(MAX_STRING_LEN)
                 }
             })
             .collect()
@@ -228,6 +217,16 @@ impl<'a> Table<'a> {
             TableModeState::Filtered(df, _) => df.column_names(),
             TableModeState::Grouped(df) => df.column_names(),
         }
+    }
+}
+
+fn get_column_value_width(value: &dataframe::ColumnValue) -> usize {
+    match value {
+        dataframe::ColumnValue::Boolean(_) => 1,
+        dataframe::ColumnValue::String(s) => s.len(),
+        dataframe::ColumnValue::Integer(_) => 16,
+        dataframe::ColumnValue::DateTime(_) => 12,
+        dataframe::ColumnValue::None => 0,
     }
 }
 

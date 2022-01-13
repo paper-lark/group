@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let spec = configuration::InputSpec::read_from_file(args.spec)?;
 
     let reader = std::io::BufReader::new(fs::File::open(args.input)?);
-    let data = read_dataframe(reader, &spec, args.single)?;
+    let data = read_dataframe(reader, &spec.attrs, args.single)?;
     show_dataframe(&data, &spec.group_by, &spec.show_in_grouped)?;
 
     Ok(())
