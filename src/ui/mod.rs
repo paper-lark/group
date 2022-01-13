@@ -9,7 +9,11 @@ use tui::Terminal;
 
 use crate::io::dataframe;
 
-pub fn show_dataframe(df: &dataframe::MaterializedDataFrame, group_columns: &[String]) -> Result<(), io::Error> {
+pub fn show_dataframe(
+    df: &dataframe::MaterializedDataFrame,
+    group_columns: &[String],
+    show_in_grouped_mode: &[String],
+) -> Result<(), io::Error> {
     // prepare tui
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
@@ -18,7 +22,7 @@ pub fn show_dataframe(df: &dataframe::MaterializedDataFrame, group_columns: &[St
     term.clear()?;
 
     // draw table
-    let mut table = table::Table::new(df, group_columns);
+    let mut table = table::Table::new(df, group_columns, show_in_grouped_mode);
     loop {
         term.draw(|f| table.render(f))?;
 

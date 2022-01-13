@@ -1,4 +1,3 @@
-use crate::io::dataframe::InputAttributeType;
 use serde::Deserialize;
 use std::collections::HashSet;
 use string_error::{into_err, new_err};
@@ -21,17 +20,12 @@ pub struct GroupOpts {
 }
 
 #[derive(Deserialize)]
-pub struct InputAttributeSpec {
-    pub name: String,
-
-    #[serde(rename = "type")]
-    pub attr_type: InputAttributeType,
-}
-
-#[derive(Deserialize)]
 pub struct InputSpec {
-    pub attrs: Vec<InputAttributeSpec>,
+    pub attrs: Vec<String>,
     pub group_by: Vec<String>,
+
+    #[serde(default)]
+    pub show_in_grouped: Vec<String>,
 }
 
 impl InputSpec {
@@ -43,7 +37,7 @@ impl InputSpec {
     }
 
     pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let attr_names: HashSet<String> = self.attrs.iter().map(|a| a.name.clone()).collect();
+        let attr_names: HashSet<&String> = self.attrs.iter().collect();
         if attr_names.len() != self.attrs.len() {
             return Err(new_err("spec contains duplicates"));
         }
@@ -53,7 +47,11 @@ impl InputSpec {
                 return Err(into_err(format!("missing grouping attribute {} in spec", attr_name)));
             }
         }
-
+        for attr_name in &self.show_in_grouped {
+            if !attr_names.contains(attr_name) {
+                return Err(into_err(format!("missing attribute {} requested to show in grouped mode", attr_name)));
+            }
+        }
         Ok(())
     }
 }

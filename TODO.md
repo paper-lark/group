@@ -1,7 +1,7 @@
 # Features
-- Autogenerate spec (allow to choose a subset of columns to show)
 - Add timeline column in grouped mode
-- Support nested JSON fields
+- Gradient color for time column with steps based on intervals between timestamps
+- Colored JSON output
 
 # Backlog
 - Infer column attributes once and improve string column sizing
