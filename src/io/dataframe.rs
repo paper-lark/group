@@ -229,58 +229,7 @@ impl<'a> Index<(&String, usize)> for DataFrameGroupView<'a> {
 }
 
 impl<'a> DataFrameGroupView<'a> {
-    pub fn timeline(&self, column_name: &str, index: usize, resolution: u16) -> String {
-        // get timestamp column
-        let time_column = match self.source.columns.get(column_name) {
-            None => return String::from(""),
-            Some(c) => c,
-        };
-
-        // get time grid
-        let grid = create_timeline_grid(time_column, resolution);
-
-        // get timestamps for requested index
-        let timestamps: Vec<_> = self.group_idx[index]
-            .iter()
-            .map(|i| time_column[*i].clone())
-            .filter_map(|c| if let ColumnValue::DateTime(ts) = c { Some(ts) } else { None })
-            .collect();
-        let mut slots: Vec<usize> = vec![0; resolution.into()];
-        for ts in timestamps {
-            let slot_index = grid
-                .iter()
-                .enumerate()
-                .filter(|(_, t)| **t <= ts)
-                .map(|(i, _)| i)
-                .last()
-                .unwrap_or(0);
-            slots[slot_index] += 1;
-        }
-
-        // create string
-        (0..resolution as usize).map(|i| if slots[i] > 0 { '█' } else { ' ' }).collect()
+    pub fn group_indices(&self, index: usize) -> &Vec<usize> {
+        &self.group_idx[index]
     }
-}
-
-fn create_timeline_grid(time_column: &Column, resolution: u16) -> Vec<DateTime<Utc>> {
-    let ts: Vec<_> = time_column
-        .values
-        .iter()
-        .filter_map(|c| if let ColumnValue::DateTime(ts) = c { Some(ts) } else { None })
-        .collect();
-
-    if let Some(min_ts) = ts.iter().min() {
-        if let Some(max_ts) = ts.iter().max() {
-            let delta = (**max_ts - **min_ts) / ((resolution - 1).into());
-            let mut intervals: Vec<DateTime<Utc>> = Vec::new();
-            let mut ts = **min_ts;
-            for _ in 0..resolution {
-                intervals.push(ts);
-                ts = ts + delta;
-            }
-
-            return intervals;
-        }
-    }
-    Vec::new()
 }

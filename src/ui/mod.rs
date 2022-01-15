@@ -1,5 +1,7 @@
+mod card;
 mod colorizer;
 mod table;
+mod timeline;
 
 use std::io;
 

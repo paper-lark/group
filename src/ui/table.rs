@@ -3,13 +3,14 @@ use std::collections::HashMap;
 use tui::backend;
 use tui::layout;
 use tui::style;
-use tui::text;
 use tui::widgets;
 use tui::Frame;
 
 use crate::io::dataframe;
 use crate::io::dataframe::DataFrame;
+use crate::ui::card;
 use crate::ui::colorizer;
+use crate::ui::timeline;
 use std::collections::VecDeque;
 
 pub struct Table<'a> {
@@ -31,6 +32,7 @@ enum TableModeState<'a> {
 }
 
 const TIMELINE_WIDTH: u16 = 16;
+const MAX_STRING_LEN: u16 = 32;
 
 impl<'a> Table<'a> {
     pub fn new(
@@ -109,22 +111,18 @@ impl<'a> Table<'a> {
         let state = self.get_current_state();
         let table_size = if let TableModeState::Filtered(df, focused) = &state.mode_state {
             if *focused {
-                let text = text::Text::from(df.raw(state.selected).clone());
-                let text_height = text.height();
-
+                let card_widget = card::Card::new(df.raw(state.selected));
                 let chunks = layout::Layout::default()
                     .direction(layout::Direction::Vertical)
                     .constraints(
                         [
                             layout::Constraint::Min(0),
-                            layout::Constraint::Length(usize_to_u16(text_height + 1)),
+                            layout::Constraint::Length(usize_to_u16(card_widget.text_height + 1)),
                         ]
                         .as_ref(),
                     )
                     .split(size);
-                let para_size = chunks[1];
-                let para = widgets::Paragraph::new(text).block(widgets::Block::default().borders(widgets::Borders::TOP));
-                f.render_widget(para, para_size);
+                f.render_widget(card_widget.widget, chunks[1]);
                 chunks[0]
             } else {
                 size
@@ -165,35 +163,35 @@ impl<'a> Table<'a> {
     fn get_table_contents<'b>(&mut self) -> Vec<widgets::Row<'b>> {
         let mut table_contents: Vec<widgets::Row> = Vec::new();
 
+        macro_rules! put_entries {
+            ($df:ident, $timeline_column:expr => $contents:ident) => {
+                for i in 0..$df.len() {
+                    let mut row_cells = Vec::new();
+                    for name in self.get_column_names() {
+                        let column = &self.source_df[name];
+                        let colorize = colorizer::select(column);
+                        let v = &$df[(name, i)];
+                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
+                    }
+                    if let Some(t) = &$timeline_column {
+                        row_cells.push(widgets::Cell::from(t[i].clone()));
+                    }
+                    $contents.push(widgets::Row::new(row_cells));
+                }
+            };
+        }
+
         match &self.get_current_state().mode_state {
-            TableModeState::Filtered(df, _) => {
-                for i in 0..df.len() {
-                    let mut row_cells = Vec::new();
-                    for name in self.get_column_names() {
-                        let column = &self.source_df[name];
-                        let colorize = colorizer::select(column);
-                        let v = &df[(name, i)];
-                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
-                    }
-                    table_contents.push(widgets::Row::new(row_cells));
-                }
-            }
+            TableModeState::Filtered(df, _) => put_entries!(df, None::<Vec<String>> => table_contents),
             TableModeState::Grouped(df) => {
-                for i in 0..df.len() {
-                    let mut row_cells = Vec::new();
-                    for name in self.get_column_names() {
-                        let column = &self.source_df[name];
-                        let colorize = colorizer::select(column);
-                        let v = &df[(name, i)];
-                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
-                    }
-                    if let Some(timeline_column) = self.timeline_column {
-                        row_cells.push(widgets::Cell::from(df.timeline(timeline_column, i, TIMELINE_WIDTH)));
-                    }
-                    table_contents.push(widgets::Row::new(row_cells));
-                }
+                let timeline_column = self
+                    .timeline_column
+                    .as_ref()
+                    .map(|c| timeline::create_timeline_column(self.source_df, df, c, TIMELINE_WIDTH));
+                put_entries!(df, timeline_column => table_contents)
             }
         };
+
         table_contents
     }
 
@@ -209,8 +207,6 @@ impl<'a> Table<'a> {
     }
 
     fn get_column_widths(&self) -> Vec<layout::Constraint> {
-        const MAX_STRING_LEN: u16 = 32;
-
         let mut contraints: Vec<_> = self
             .get_column_names()
             .into_iter()
