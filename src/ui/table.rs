@@ -29,6 +29,8 @@ enum TableModeState<'a> {
     Filtered(dataframe::DataFrameFilterView<'a>, bool),
 }
 
+const TIMELINE_WIDTH: u16 = 16;
+
 impl<'a> Table<'a> {
     pub fn new(
         source_df: &'a dataframe::MaterializedDataFrame,
@@ -160,24 +162,32 @@ impl<'a> Table<'a> {
     fn get_table_contents<'b>(&mut self) -> Vec<widgets::Row<'b>> {
         let mut table_contents: Vec<widgets::Row> = Vec::new();
 
-        macro_rules! put_entries {
-            ($df:ident => $contents:ident) => {
-                for i in 0..$df.len() {
+        match &self.get_current_state().mode_state {
+            TableModeState::Filtered(df, _) => {
+                for i in 0..df.len() {
                     let mut row_cells = Vec::new();
                     for name in self.get_column_names() {
                         let column = &self.source_df[name];
                         let colorize = colorizer::select(column);
-                        let v = &$df[(name, i)];
+                        let v = &df[(name, i)];
                         row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
                     }
-                    $contents.push(widgets::Row::new(row_cells));
+                    table_contents.push(widgets::Row::new(row_cells));
                 }
-            };
-        }
-
-        match &self.get_current_state().mode_state {
-            TableModeState::Filtered(df, _) => put_entries!(df => table_contents),
-            TableModeState::Grouped(df) => put_entries!(df => table_contents),
+            }
+            TableModeState::Grouped(df) => {
+                for i in 0..df.len() {
+                    let mut row_cells = Vec::new();
+                    for name in self.get_column_names() {
+                        let column = &self.source_df[name];
+                        let colorize = colorizer::select(column);
+                        let v = &df[(name, i)];
+                        row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
+                    }
+                    row_cells.push(widgets::Cell::from(df.timeline(i, TIMELINE_WIDTH)));
+                    table_contents.push(widgets::Row::new(row_cells));
+                }
+            }
         };
         table_contents
     }
@@ -196,7 +206,8 @@ impl<'a> Table<'a> {
     fn get_column_widths(&self) -> Vec<layout::Constraint> {
         const MAX_STRING_LEN: u16 = 32;
 
-        self.get_column_names()
+        let mut contraints: Vec<_> = self
+            .get_column_names()
             .into_iter()
             .map(|name| {
                 let column = &self.source_df[name];
@@ -209,7 +220,10 @@ impl<'a> Table<'a> {
                     layout::Constraint::Min(MAX_STRING_LEN)
                 }
             })
-            .collect()
+            .collect();
+
+        contraints.push(layout::Constraint::Length(TIMELINE_WIDTH));
+        contraints
     }
 
     fn get_column_names(&self) -> Vec<&String> {

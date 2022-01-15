@@ -227,3 +227,86 @@ impl<'a> Index<(&String, usize)> for DataFrameGroupView<'a> {
         &self.source[key.0][self.group_idx[key.1][0]]
     }
 }
+
+impl<'a> DataFrameGroupView<'a> {
+    pub fn timeline(&self, index: usize, resolution: u16) -> String {
+        // get timestamp column
+        const SLOTS_PER_UNIT: u16 = 8;
+        let column_name = "time";
+        let time_column = match self.source.columns.get(column_name) {
+            None => return String::from(""),
+            Some(c) => c,
+        };
+
+        // get time grid
+        let slot_count = resolution * SLOTS_PER_UNIT;
+        let grid = create_timeline_grid(time_column, slot_count);
+
+        // get timestamps for requested index
+        let timestamps: Vec<_> = self.group_idx[index]
+            .iter()
+            .map(|i| time_column[*i].clone())
+            .filter_map(|c| if let ColumnValue::DateTime(ts) = c { Some(ts) } else { None })
+            .collect();
+        let mut slots: Vec<bool> = vec![false; slot_count.into()];
+        for ts in timestamps {
+            let slot_index = grid
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| **t <= ts)
+                .map(|(i, _)| i)
+                .last()
+                .unwrap_or(0);
+            slots[slot_index] = true;
+        }
+
+        // create string
+        let mut chars = vec![' '; resolution as usize];
+        for i in 0..resolution as usize {
+            // get max subindex in current resolution unit
+            let max_idx = (0..SLOTS_PER_UNIT as usize)
+                .filter(|j| slots[i * SLOTS_PER_UNIT as usize + j])
+                .map(|j| j + 1)
+                .max()
+                .unwrap_or(0);
+
+            // choose character for current resolution unit
+            let slot_char = match max_idx {
+                0 => ' ',
+                1 => '▏',
+                2 => '▎',
+                3 => '▍',
+                4 => '▌',
+                5 => '▋',
+                6 => '▊',
+                7 => '▉',
+                _ => '█', // FIXME: ok?
+            };
+            chars[i] = slot_char;
+        }
+        chars.iter().collect()
+    }
+}
+
+fn create_timeline_grid(time_column: &Column, resolution: u16) -> Vec<DateTime<Utc>> {
+    let ts: Vec<_> = time_column
+        .values
+        .iter()
+        .filter_map(|c| if let ColumnValue::DateTime(ts) = c { Some(ts) } else { None })
+        .collect();
+
+    if let Some(min_ts) = ts.iter().min() {
+        if let Some(max_ts) = ts.iter().max() {
+            let delta = (**max_ts - **min_ts) / ((resolution - 1).into());
+            let mut intervals: Vec<DateTime<Utc>> = Vec::new();
+            let mut ts = **min_ts;
+            for _ in 0..resolution {
+                intervals.push(ts);
+                ts = ts + delta;
+            }
+
+            return intervals;
+        }
+    }
+    Vec::new()
+}
