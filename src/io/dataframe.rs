@@ -28,7 +28,7 @@ impl std::string::ToString for ColumnValue {
             }
             ColumnValue::String(s) => s.clone(),
             ColumnValue::DateTime(d) => d.format("%H:%M:%S%.3f").to_string(),
-            ColumnValue::None => String::from(""),
+            ColumnValue::None => String::from("-"),
         }
     }
 }
@@ -229,18 +229,15 @@ impl<'a> Index<(&String, usize)> for DataFrameGroupView<'a> {
 }
 
 impl<'a> DataFrameGroupView<'a> {
-    pub fn timeline(&self, index: usize, resolution: u16) -> String {
+    pub fn timeline(&self, column_name: &str, index: usize, resolution: u16) -> String {
         // get timestamp column
-        const SLOTS_PER_UNIT: u16 = 8;
-        let column_name = "time";
         let time_column = match self.source.columns.get(column_name) {
             None => return String::from(""),
             Some(c) => c,
         };
 
         // get time grid
-        let slot_count = resolution * SLOTS_PER_UNIT;
-        let grid = create_timeline_grid(time_column, slot_count);
+        let grid = create_timeline_grid(time_column, resolution);
 
         // get timestamps for requested index
         let timestamps: Vec<_> = self.group_idx[index]
@@ -248,7 +245,7 @@ impl<'a> DataFrameGroupView<'a> {
             .map(|i| time_column[*i].clone())
             .filter_map(|c| if let ColumnValue::DateTime(ts) = c { Some(ts) } else { None })
             .collect();
-        let mut slots: Vec<bool> = vec![false; slot_count.into()];
+        let mut slots: Vec<usize> = vec![0; resolution.into()];
         for ts in timestamps {
             let slot_index = grid
                 .iter()
@@ -257,34 +254,11 @@ impl<'a> DataFrameGroupView<'a> {
                 .map(|(i, _)| i)
                 .last()
                 .unwrap_or(0);
-            slots[slot_index] = true;
+            slots[slot_index] += 1;
         }
 
         // create string
-        let mut chars = vec![' '; resolution as usize];
-        for i in 0..resolution as usize {
-            // get max subindex in current resolution unit
-            let max_idx = (0..SLOTS_PER_UNIT as usize)
-                .filter(|j| slots[i * SLOTS_PER_UNIT as usize + j])
-                .map(|j| j + 1)
-                .max()
-                .unwrap_or(0);
-
-            // choose character for current resolution unit
-            let slot_char = match max_idx {
-                0 => ' ',
-                1 => '▏',
-                2 => '▎',
-                3 => '▍',
-                4 => '▌',
-                5 => '▋',
-                6 => '▊',
-                7 => '▉',
-                _ => '█', // FIXME: ok?
-            };
-            chars[i] = slot_char;
-        }
-        chars.iter().collect()
+        (0..resolution as usize).map(|i| if slots[i] > 0 { '█' } else { ' ' }).collect()
     }
 }
 

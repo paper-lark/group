@@ -16,6 +16,7 @@ pub struct Table<'a> {
     source_df: &'a dataframe::MaterializedDataFrame,
     state: VecDeque<TableState<'a>>,
     group_columns: &'a [String],
+    timeline_column: &'a Option<String>,
 }
 
 struct TableState<'a> {
@@ -36,6 +37,7 @@ impl<'a> Table<'a> {
         source_df: &'a dataframe::MaterializedDataFrame,
         group_columns: &'a [String],
         show_in_grouped_mode: &'a [String],
+        timeline_column: &'a Option<String>,
     ) -> Table<'a> {
         let mut table = Table {
             source_df,
@@ -45,6 +47,7 @@ impl<'a> Table<'a> {
                 selected: 0,
             }]),
             group_columns,
+            timeline_column,
         };
         table.set_selected(0);
         table
@@ -184,7 +187,9 @@ impl<'a> Table<'a> {
                         let v = &df[(name, i)];
                         row_cells.push(widgets::Cell::from(v.to_string()).style(style::Style::default().fg(colorize(v))));
                     }
-                    row_cells.push(widgets::Cell::from(df.timeline(i, TIMELINE_WIDTH)));
+                    if let Some(timeline_column) = self.timeline_column {
+                        row_cells.push(widgets::Cell::from(df.timeline(timeline_column, i, TIMELINE_WIDTH)));
+                    }
                     table_contents.push(widgets::Row::new(row_cells));
                 }
             }

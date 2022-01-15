@@ -132,6 +132,7 @@ mod test {
                 attrs: vec![String::from($column_name)],
                 group_by: vec![String::from($column_name)],
                 show_in_grouped: vec![],
+                timeline_column: None,
             }
         };
     }
