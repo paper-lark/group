@@ -139,7 +139,7 @@ impl<'a> Table<'a> {
                     .bg(style::Color::DarkGray)
                     .add_modifier(style::Modifier::BOLD),
             )
-            .highlight_symbol("> ")
+            .highlight_style(style::Style::default().bg(style::Color::DarkGray))
             .widths(&column_widths)
             .column_spacing(2);
 
