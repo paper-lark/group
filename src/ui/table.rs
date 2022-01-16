@@ -32,7 +32,7 @@ enum TableModeState<'a> {
 }
 
 const TIMELINE_WIDTH: u16 = 16;
-const MAX_STRING_LEN: u16 = 32;
+const MAX_STRING_WIDTH: u16 = 32;
 
 impl<'a> Table<'a> {
     pub fn new(
@@ -214,11 +214,11 @@ impl<'a> Table<'a> {
                 let column = &self.source_df[name];
                 let lens: Vec<usize> = column.values.iter().map(get_column_value_width).collect();
                 let max_len = lens.iter().fold(name.len(), |a, b| a.max(*b));
-                if max_len < MAX_STRING_LEN as usize {
+                if max_len < MAX_STRING_WIDTH as usize {
                     #[allow(clippy::cast_possible_truncation)]
                     layout::Constraint::Length(max_len as u16)
                 } else {
-                    layout::Constraint::Min(MAX_STRING_LEN)
+                    layout::Constraint::Min(MAX_STRING_WIDTH)
                 }
             })
             .collect();
