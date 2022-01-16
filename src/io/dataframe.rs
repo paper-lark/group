@@ -28,7 +28,7 @@ impl std::string::ToString for ColumnValue {
             }
             ColumnValue::String(s) => s.clone(),
             ColumnValue::DateTime(d) => d.format("%H:%M:%S%.3f").to_string(),
-            ColumnValue::None => String::from(""),
+            ColumnValue::None => String::from("-"),
         }
     }
 }
@@ -225,5 +225,11 @@ impl<'a> Index<(&String, usize)> for DataFrameGroupView<'a> {
 
     fn index(&self, key: (&String, usize)) -> &ColumnValue {
         &self.source[key.0][self.group_idx[key.1][0]]
+    }
+}
+
+impl<'a> DataFrameGroupView<'a> {
+    pub fn group_indices(&self, index: usize) -> &Vec<usize> {
+        &self.group_idx[index]
     }
 }

@@ -23,6 +23,7 @@ pub struct GroupOpts {
 pub struct InputSpec {
     pub attrs: Vec<String>,
     pub group_by: Vec<String>,
+    pub timeline_column: Option<String>,
 
     #[serde(default)]
     pub show_in_grouped: Vec<String>,

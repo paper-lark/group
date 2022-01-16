@@ -1,5 +1,7 @@
+mod card;
 mod colorizer;
 mod table;
+mod timeline;
 
 use std::io;
 
@@ -13,6 +15,7 @@ pub fn show_dataframe(
     df: &dataframe::MaterializedDataFrame,
     group_columns: &[String],
     show_in_grouped_mode: &[String],
+    timeline_column: &Option<String>,
 ) -> Result<(), io::Error> {
     // prepare tui
     let stdout = io::stdout();
@@ -22,7 +25,7 @@ pub fn show_dataframe(
     term.clear()?;
 
     // draw table
-    let mut table = table::Table::new(df, group_columns, show_in_grouped_mode);
+    let mut table = table::Table::new(df, group_columns, show_in_grouped_mode, timeline_column);
     loop {
         term.draw(|f| table.render(f))?;
 

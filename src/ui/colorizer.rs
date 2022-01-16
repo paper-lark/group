@@ -22,9 +22,10 @@ pub fn select(col: &Column) -> Colorizer {
 #[allow(clippy::cast_possible_truncation)]
 fn colorize_rgb(value: &ColumnValue) -> style::Color {
     const MIN_INTENSITY: u8 = 128;
+    const MAX_INTENSITY: u8 = 250;
     macro_rules! intensify {
         ($x: expr) => {
-            MIN_INTENSITY + ($x) % 128
+            MIN_INTENSITY + ($x) % (MAX_INTENSITY - MIN_INTENSITY)
         };
     }
 
