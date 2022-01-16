@@ -222,8 +222,11 @@ impl<'a> Table<'a> {
                 }
             })
             .collect();
-
-        contraints.push(layout::Constraint::Length(TIMELINE_WIDTH));
+        if self.timeline_column.is_some() {
+            if let TableModeState::Grouped(_) = self.get_current_state().mode_state {
+                contraints.push(layout::Constraint::Length(TIMELINE_WIDTH));
+            }
+        }
         contraints
     }
 
@@ -237,11 +240,10 @@ impl<'a> Table<'a> {
 
 fn get_column_value_width(value: &dataframe::ColumnValue) -> usize {
     match value {
-        dataframe::ColumnValue::Boolean(_) => 1,
+        dataframe::ColumnValue::Boolean(_) | dataframe::ColumnValue::None => 1,
         dataframe::ColumnValue::String(s) => s.len(),
         dataframe::ColumnValue::Integer(_) => 16,
         dataframe::ColumnValue::DateTime(_) => 12,
-        dataframe::ColumnValue::None => 0,
     }
 }
 

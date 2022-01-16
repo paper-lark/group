@@ -56,7 +56,6 @@ fn to_colored_yaml<'a>(obj: &serde_json::Value) -> Vec<text::Spans<'a>> {
                         lines.insert(0, new_line!(padding, colored_text_ref("|", SYNTAX_COLOR)));
                     }
                     (lines, false)
-                    // (vec![new_line!(padding, colored_text(v.clone(), STRING_COLOR))], false)
                 }
             }
             serde_json::Value::Null => (vec![new_line!(padding, colored_text_ref("null", LITERAL_COLOR))], false),
