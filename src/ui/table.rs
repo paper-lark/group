@@ -31,7 +31,7 @@ enum TableModeState<'a> {
     Filtered(dataframe::DataFrameFilterView<'a>, bool),
 }
 
-const TIMELINE_WIDTH: u16 = 16;
+const TIMELINE_WIDTH: u16 = 32;
 const MAX_STRING_WIDTH: u16 = 32;
 
 impl<'a> Table<'a> {
@@ -134,12 +134,8 @@ impl<'a> Table<'a> {
         let column_widths = self.get_column_widths();
         let table = widgets::Table::new(self.get_table_contents())
             .header(self.get_table_header())
-            .highlight_style(
-                style::Style::default()
-                    .bg(style::Color::DarkGray)
-                    .add_modifier(style::Modifier::BOLD),
-            )
-            .highlight_style(style::Style::default().bg(style::Color::DarkGray))
+            .highlight_symbol("> ")
+            .highlight_style(style::Style::default().add_modifier(style::Modifier::HIDDEN | style::Modifier::BOLD))
             .widths(&column_widths)
             .column_spacing(2);
 
