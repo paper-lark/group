@@ -4,7 +4,7 @@ use tui::widgets;
 
 pub struct Card<'a> {
     pub widget: widgets::Paragraph<'a>,
-    pub text_height: usize,
+    pub height: usize,
 }
 
 impl<'a> Card<'a> {
@@ -12,10 +12,10 @@ impl<'a> Card<'a> {
         let obj: serde_json::Value = serde_json::from_str(txt).expect("failed to parse");
         let colored = to_colored_yaml(&obj);
         let text_element = text::Text::from(colored);
-        let text_height = text_element.height();
+        let height = text_element.height() + 1;
         let para = widgets::Paragraph::new(text_element).block(widgets::Block::default().borders(widgets::Borders::TOP));
 
-        Card { widget: para, text_height }
+        Card { widget: para, height }
     }
 }
 

@@ -1,5 +1,6 @@
 mod card;
 mod colorizer;
+mod footer;
 mod table;
 mod timeline;
 

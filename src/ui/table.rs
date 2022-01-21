@@ -10,6 +10,7 @@ use crate::io::dataframe;
 use crate::io::dataframe::DataFrame;
 use crate::ui::card;
 use crate::ui::colorizer;
+use crate::ui::footer;
 use crate::ui::timeline;
 use std::collections::VecDeque;
 
@@ -29,6 +30,15 @@ struct TableState<'a> {
 enum TableModeState<'a> {
     Grouped(dataframe::DataFrameGroupView<'a>),
     Filtered(dataframe::DataFrameFilterView<'a>, bool),
+}
+
+impl<'a> TableModeState<'a> {
+    fn get_name(&self) -> &'static str {
+        match self {
+            TableModeState::Grouped(_) => "GROUPED",
+            TableModeState::Filtered(_, _) => "FILTERED",
+        }
+    }
 }
 
 const TIMELINE_WIDTH: u16 = 32;
@@ -106,41 +116,66 @@ impl<'a> Table<'a> {
     }
 
     pub fn render<B: backend::Backend>(&mut self, f: &mut Frame<B>) {
-        // render focused column if required
-        let size = f.size();
-        let state = self.get_current_state();
-        let table_size = if let TableModeState::Filtered(df, focused) = &state.mode_state {
-            if *focused {
-                let card_widget = card::Card::new(df.raw(state.selected));
-                let chunks = layout::Layout::default()
-                    .direction(layout::Direction::Vertical)
-                    .constraints(
-                        [
-                            layout::Constraint::Min(0),
-                            layout::Constraint::Length(usize_to_u16(card_widget.text_height + 1)),
-                        ]
-                        .as_ref(),
-                    )
-                    .split(size);
-                f.render_widget(card_widget.widget, chunks[1]);
-                chunks[0]
-            } else {
-                size
-            }
-        } else {
-            size
-        };
-
+        // create table widget
         let column_widths = self.get_column_widths();
-        let table = widgets::Table::new(self.get_table_contents())
+        let table_contents = self.get_table_contents();
+        let row_count = table_contents.len();
+        let current_state = self.get_current_state();
+        let table_widget = widgets::Table::new(table_contents)
             .header(self.get_table_header())
             .highlight_symbol("> ")
             .highlight_style(style::Style::default().add_modifier(style::Modifier::HIDDEN | style::Modifier::BOLD))
             .widths(&column_widths)
             .column_spacing(2);
 
+        // create footer
+        let footer_widget = footer::Footer::new(current_state.mode_state.get_name(), current_state.selected + 1, row_count);
+
+        // create card
+        let card_widget = if let TableModeState::Filtered(df, focused) = &current_state.mode_state {
+            if *focused {
+                Some(card::Card::new(df.raw(current_state.selected)))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // place widgets
+        let size = f.size();
+        let chunks = layout::Layout::default()
+            .direction(layout::Direction::Vertical)
+            .constraints(
+                [
+                    layout::Constraint::Min(0),
+                    layout::Constraint::Length(usize_to_u16(footer_widget.height)),
+                ]
+                .as_ref(),
+            )
+            .split(size);
+        let footer_size = chunks[1];
+        let table_size = if let Some(card_widget) = card_widget {
+            let chunks = layout::Layout::default()
+                .direction(layout::Direction::Vertical)
+                .constraints(
+                    [
+                        layout::Constraint::Min(0),
+                        layout::Constraint::Length(usize_to_u16(card_widget.height)),
+                    ]
+                    .as_ref(),
+                )
+                .split(chunks[0]);
+            f.render_widget(card_widget.widget, chunks[1]);
+            chunks[0]
+        } else {
+            chunks[0]
+        };
+
+        f.render_widget(footer_widget.widget, footer_size);
+
         let state = self.get_current_state_mut();
-        f.render_stateful_widget(table, table_size, &mut state.table_state);
+        f.render_stateful_widget(table_widget, table_size, &mut state.table_state);
     }
 
     fn set_selected(&mut self, value: usize) {
@@ -198,7 +233,7 @@ impl<'a> Table<'a> {
             .map(|c| widgets::Cell::from(c.clone()))
             .collect();
         widgets::Row::new(cells)
-            .style(style::Style::default().fg(style::Color::Yellow))
+            .style(style::Style::default().fg(style::Color::Yellow).add_modifier(style::Modifier::BOLD))
             .bottom_margin(1)
     }
 
