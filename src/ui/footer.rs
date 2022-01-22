@@ -1,10 +1,13 @@
+use tui::backend;
+use tui::layout;
 use tui::style;
 use tui::text;
 use tui::widgets;
+use tui::Frame;
 
 pub struct Footer<'a> {
-    pub widget: widgets::Paragraph<'a>,
-    pub height: usize,
+    widget: widgets::Paragraph<'a>,
+    height: usize,
 }
 
 impl<'a> Footer<'a> {
@@ -18,5 +21,13 @@ impl<'a> Footer<'a> {
         let para = widgets::Paragraph::new(contents).style(style::Style::default().add_modifier(style::Modifier::REVERSED));
 
         Footer { widget: para, height: 1 }
+    }
+
+    pub fn get_height(&self) -> usize {
+        self.height
+    }
+
+    pub fn render<B: backend::Backend>(self, f: &mut Frame<B>, size: layout::Rect) {
+        f.render_widget(self.widget, size);
     }
 }

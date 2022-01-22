@@ -57,6 +57,8 @@ pub trait DataFrame {
     fn column_names(&self) -> Vec<&String>;
     fn row(&self, index: usize) -> Vec<ColumnValue>;
     fn raw(&self, index: usize) -> &String;
+    fn column(&self, key: &str) -> &Column;
+    fn get(&self, key: (&String, usize)) -> &ColumnValue;
 }
 
 #[derive(PartialEq, Debug)]
@@ -82,6 +84,14 @@ impl DataFrame for MaterializedDataFrame {
 
     fn raw(&self, index: usize) -> &String {
         &self.raw_values[index]
+    }
+
+    fn column(&self, key: &str) -> &Column {
+        &self.columns[key]
+    }
+
+    fn get(&self, key: (&String, usize)) -> &ColumnValue {
+        &self[key]
     }
 }
 
@@ -169,6 +179,14 @@ impl<'a> DataFrame for DataFrameFilterView<'a> {
     fn raw(&self, index: usize) -> &String {
         self.source.raw(self.idx[index])
     }
+
+    fn column(&self, key: &str) -> &Column {
+        self.source.column(key)
+    }
+
+    fn get(&self, key: (&String, usize)) -> &ColumnValue {
+        &self[key]
+    }
 }
 
 impl<'a> Index<&String> for DataFrameFilterView<'a> {
@@ -209,6 +227,14 @@ impl<'a> DataFrame for DataFrameGroupView<'a> {
 
     fn raw(&self, index: usize) -> &String {
         self.source.raw(self.group_idx[index][0])
+    }
+
+    fn column(&self, key: &str) -> &Column {
+        self.source.column(key)
+    }
+
+    fn get(&self, key: (&String, usize)) -> &ColumnValue {
+        &self[key]
     }
 }
 
