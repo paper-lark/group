@@ -1,21 +1,32 @@
+use tui::backend;
+use tui::layout;
 use tui::style;
 use tui::text;
 use tui::widgets;
+use tui::Frame;
 
-pub struct Card<'a> {
-    pub widget: widgets::Paragraph<'a>,
-    pub text_height: usize,
+pub struct View<'a> {
+    widget: widgets::Paragraph<'a>,
+    height: usize,
 }
 
-impl<'a> Card<'a> {
-    pub fn new<'b>(txt: &'b str) -> Card<'a> {
+impl<'a> View<'a> {
+    pub fn new<'b>(txt: &'b str) -> View<'a> {
         let obj: serde_json::Value = serde_json::from_str(txt).expect("failed to parse");
         let colored = to_colored_yaml(&obj);
         let text_element = text::Text::from(colored);
-        let text_height = text_element.height();
+        let height = text_element.height() + 1;
         let para = widgets::Paragraph::new(text_element).block(widgets::Block::default().borders(widgets::Borders::TOP));
 
-        Card { widget: para, text_height }
+        View { widget: para, height }
+    }
+
+    pub fn get_height(&self) -> usize {
+        self.height
+    }
+
+    pub fn render<B: backend::Backend>(self, f: &mut Frame<B>, size: layout::Rect) {
+        f.render_widget(self.widget, size);
     }
 }
 
@@ -61,7 +72,7 @@ fn to_colored_yaml<'a>(obj: &serde_json::Value) -> Vec<text::Spans<'a>> {
             serde_json::Value::Null => (vec![new_line!(padding, colored_text_ref("null", LITERAL_COLOR))], false),
             serde_json::Value::Array(_) => {
                 (vec![new_line!(padding, colored_text_ref("[]", SYNTAX_COLOR))], false)
-                // FIXME:
+                // TODO: support arrays
             }
             serde_json::Value::Object(v) => {
                 if v.is_empty() {
@@ -70,7 +81,6 @@ fn to_colored_yaml<'a>(obj: &serde_json::Value) -> Vec<text::Spans<'a>> {
                     let result: Vec<_> = v
                         .iter()
                         .flat_map(|(k, v)| {
-                            // FIXME: order keys
                             let mut result = vec![new_line!(
                                 padding,
                                 colored_text(k.clone(), KEY_COLOR),
