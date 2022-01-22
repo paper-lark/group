@@ -30,7 +30,7 @@ pub fn show_dataframe(
     // draw table
     let mut app_view_model = app::ViewModel::new(df, group_columns, show_in_grouped_mode, timeline_column);
     loop {
-        term.draw(|f| app::render_app_view(&mut app_view_model, f))?;
+        term.draw(|f| app::View::new(&mut app_view_model).render(f))?;
         match event::read()? {
             event::Event::Key(key) => {
                 if key.code == event::KeyCode::Char('c') && key.modifiers == event::KeyModifiers::CONTROL {

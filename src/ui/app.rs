@@ -109,54 +109,64 @@ impl<'a> ViewModel<'a> {
     }
 }
 
-pub fn render_app_view<'a: 'b, 'b, B: backend::Backend>(view_model: &'b mut ViewModel<'a>, frame: &'b mut Frame<B>) {
-    // create views
-    let current_state = view_model.get_current_state();
-    let row_count = current_state.table_view_model.df.len();
-    let selected = current_state.table_view_model.selected;
-    let footer_view = footer::Footer::new(current_state.mode.get_name(), selected + 1, row_count);
-    let card_view = if let AppMode::Filtered(focused) = &current_state.mode {
-        if *focused {
-            Some(card::View::new(current_state.table_view_model.df.raw(selected)))
+pub struct View<'a: 'b, 'b> {
+    view_model: &'b mut ViewModel<'a>,
+}
+
+impl<'a: 'b, 'b> View<'a, 'b> {
+    pub fn new(view_model: &'b mut ViewModel<'a>) -> View<'a, 'b> {
+        View { view_model }
+    }
+
+    pub fn render<B: backend::Backend>(&mut self, frame: &'b mut Frame<B>) {
+        // create views
+        let current_state = self.view_model.get_current_state();
+        let row_count = current_state.table_view_model.df.len();
+        let selected = current_state.table_view_model.selected;
+        let footer_view = footer::Footer::new(current_state.mode.get_name(), selected + 1, row_count);
+        let card_view = if let AppMode::Filtered(focused) = &current_state.mode {
+            if *focused {
+                Some(card::View::new(current_state.table_view_model.df.raw(selected)))
+            } else {
+                None
+            }
         } else {
             None
-        }
-    } else {
-        None
-    };
-    let current_state = &mut view_model.get_current_state_mut().table_view_model;
-    let table_view = table::View::new(current_state);
+        };
+        let current_state = &mut self.view_model.get_current_state_mut().table_view_model;
+        let table_view = table::View::new(current_state);
 
-    // render views
-    let size = frame.size();
-    let chunks = layout::Layout::default()
-        .direction(layout::Direction::Vertical)
-        .constraints(
-            [
-                layout::Constraint::Min(0),
-                layout::Constraint::Length(usize_to_u16(footer_view.get_height())),
-            ]
-            .as_ref(),
-        )
-        .split(size);
-    let table_size = if let Some(card_view) = card_view {
+        // render views
+        let size = frame.size();
         let chunks = layout::Layout::default()
             .direction(layout::Direction::Vertical)
             .constraints(
                 [
                     layout::Constraint::Min(0),
-                    layout::Constraint::Length(usize_to_u16(card_view.get_height())),
+                    layout::Constraint::Length(usize_to_u16(footer_view.get_height())),
                 ]
                 .as_ref(),
             )
-            .split(chunks[0]);
-        card_view.render(frame, chunks[1]);
-        chunks[0]
-    } else {
-        chunks[0]
-    };
-    footer_view.render(frame, chunks[1]);
-    table_view.render(frame, table_size);
+            .split(size);
+        let table_size = if let Some(card_view) = card_view {
+            let chunks = layout::Layout::default()
+                .direction(layout::Direction::Vertical)
+                .constraints(
+                    [
+                        layout::Constraint::Min(0),
+                        layout::Constraint::Length(usize_to_u16(card_view.get_height())),
+                    ]
+                    .as_ref(),
+                )
+                .split(chunks[0]);
+            card_view.render(frame, chunks[1]);
+            chunks[0]
+        } else {
+            chunks[0]
+        };
+        footer_view.render(frame, chunks[1]);
+        table_view.render(frame, table_size);
+    }
 }
 
 #[allow(clippy::cast_possible_truncation)]
